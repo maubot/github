@@ -1,0 +1,15 @@
+maubot: 0.1.0
+id: xyz.maubot.github
+version: 0.1.0
+license: AGPL-3.0-or-later
+modules:
+- github
+main_class: GitHubBot
+extra_files:
+- base-config.yaml
+database: true
+webapp: true
+#dependencies:
+#- foo
+#soft_dependencies:
+#- bar>=0.1
