@@ -13,51 +13,34 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Dict, List, Callable, Awaitable
+from typing import Dict, Union, Callable, Awaitable
 from json import JSONDecodeError
 import hashlib
 import hmac
 
 from aiohttp import web
 
-from maubot import PluginWebApp
-
 
 class GitHubWebhookReceiver:
-    webapp: PluginWebApp
-    handlers: Dict[str, List[Callable[[Dict], Awaitable]]]
-    webhooks: Dict[str, str]
+    handler: Callable[[Dict], Awaitable]
+    secret: Callable[[web.Request], str]
 
-    def __init__(self, webapp: PluginWebApp) -> None:
-        self.handlers = {}
-        self.webhooks = {}
-        self.webapp = webapp
-        self.webapp.add_post("/webhook/{id}", self.handle_webhook)
+    def __init__(self, handler: Callable[[Dict], Awaitable],
+                 secret: Union[str, Callable[[web.Request], str]]) -> None:
+        self.handler = handler
+        self.secret = lambda r: secret if isinstance(secret, str) else secret
 
-    def add_handler(self, event_type: str, handler: Callable[[Dict], Awaitable]) -> None:
-        self.handlers.setdefault(event_type, []).append(handler)
-
-    def add_webhook(self, webhook_id: str, secret: str) -> None:
-        self.webhooks[webhook_id] = secret
-
-    async def handle_webhook(self, request: web.Request) -> web.Response:
+    async def handle(self, request: web.Request) -> web.Response:
         try:
-            webhook_id = request.match_info["id"]
-            secret = self.webhooks[webhook_id]
+            secret = self.secret(request)
         except KeyError:
             return web.Response(status=404, text="Webhook not found")
         try:
             signature = request.headers["X-Hub-Signature"]
-        except KeyError:
-            return web.Response(status=400, text="Missing signature header")
-        try:
             event_type = request.headers["X-Github-Event"]
-        except KeyError:
-            return web.Response(status=400, text="Missing event type header")
-        try:
             delivery_id = request.headers["X-Github-Delivery"]
-        except KeyError:
-            return web.Response(status=400, text="Missing delivery ID header")
+        except KeyError as e:
+            return web.Response(status=400, text=f"Missing {e.args[0]} header")
         digest = f"sha1={hmac.new(secret, await request.text(), hashlib.sha1).hexdigest()}"
         if not hmac.compare_digest(signature, digest):
             return web.Response(status=401, text="Invalid signature")
@@ -67,11 +50,11 @@ class GitHubWebhookReceiver:
             return web.Response(status=400, text="JSON parse error")
         if not data:
             return web.Response(status=400, text="Request body must be JSON")
-        data["event_type"] = event_type
-        data["delivery_id"] = delivery_id
-        data["webhook_id"] = webhook_id
-        for handler in self.handlers.get(event_type, []) + self.handlers.get("*", []):
-            resp = await handler(data)
-            if isinstance(resp, web.Response):
-                return resp
-        return web.Response(status=200)
+        data["__event_type__"] = event_type
+        data["__delivery_id__"] = delivery_id
+        data["__secret__"] = secret
+        data["__request__"] = request
+        resp = await self.handler(data)
+        if not isinstance(resp, web.Response):
+            resp = web.Response(status=200)
+        return resp
