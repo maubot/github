@@ -74,10 +74,11 @@ class GitHubClient:
             next_key = next_key[end_index + 2:] if len(next_key) > end_index + 1 else None
         return key, next_key
 
-    def _recursive_get(self, data: Dict, key: str) -> Any:
-        key, next_key = self._parse_key(key)
+    @classmethod
+    def _recursive_get(cls, data: Dict, key: str) -> Any:
+        key, next_key = cls._parse_key(key)
         if next_key is not None:
-            return self._recursive_get(data[key], next_key)
+            return cls._recursive_get(data[key], next_key)
         return data[key]
 
     def query(self, query: str, args: str = "", variables: Optional[Dict] = None,

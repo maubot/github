@@ -13,7 +13,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Type, Dict, Tuple
+from typing import Type, Dict, Tuple, Awaitable, Callable
 import string
 import json
 
@@ -27,7 +27,7 @@ from maubot import Plugin, MessageEvent
 from maubot.handlers import command
 
 from .client_manager import ClientManager
-from .api import GitHubWebhookReceiver
+from .api import GitHubWebhookReceiver, GitHubClient
 
 secret_charset = string.ascii_letters + string.digits
 
@@ -72,6 +72,16 @@ class GitHubBot(Plugin):
         request_id = data["__request__"].match_info["id"]
         self.log.debug("Webhook data:", data)
 
+    @staticmethod
+    def authenticated(fn):
+        async def decorator(self, evt: MessageEvent, **kwargs):
+            client = self.clients.get(evt.sender)
+            if not client or not client.token:
+                return await evt.reply("You're not logged in. Log in with `!github login` first.")
+            return await fn(self, evt, **kwargs, client=client)
+
+        return decorator
+
     @command.new("github", require_subcommand=True)
     async def github(self, evt: MessageEvent) -> None:
         pass
@@ -95,7 +105,8 @@ class GitHubBot(Plugin):
 
     @github.subcommand("raw", help="Make a raw GraphQL query.")
     @command.argument("query", required=True, pass_raw=True)
-    async def raw_query(self, evt: MessageEvent, query: str) -> None:
+    @authenticated
+    async def raw_query(self, evt: MessageEvent, query: str, client: GitHubClient) -> None:
         client = self.clients.get(evt.sender)
         if not client or not client.token:
             await evt.reply("You're not logged in. Log in with `!github login` first.")
@@ -116,11 +127,9 @@ class GitHubBot(Plugin):
     @github.subcommand("create", help="Create an issue.")
     @command.argument("repo", required=False, matches=r"([A-Za-z0-9-_]+)/([A-Za-z0-9-_]+)")
     @command.argument("data", required=True, pass_raw=True)
-    async def create_issue(self, evt: MessageEvent, repo: Tuple[str, str], data: str) -> None:
-        client = self.clients.get(evt.sender)
-        if not client or not client.token:
-            await evt.reply("You're not logged in. Log in with `!github login` first.")
-            return
+    @authenticated
+    async def create_issue(self, evt: MessageEvent, repo: Tuple[str, str], data: str,
+                           client: GitHubClient) -> None:
         title, body = data.split("\n", 1) if "\n" in data else (data, "")
         repo_id = await client.query(query="repository (name: $name, owner: $owner) { id }",
                                      args="$owner: String!, $name: String!",
