@@ -13,7 +13,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Type, Dict, Tuple, Awaitable, Callable
+from typing import Type, Dict, Tuple
 import string
 import json
 
@@ -27,7 +27,7 @@ from maubot import Plugin, MessageEvent
 from maubot.handlers import command
 
 from .client_manager import ClientManager
-from .api import GitHubWebhookReceiver, GitHubClient
+from .api import GitHubWebhookReceiver, GitHubClient, GET_REPO_INFO, CREATE_ISSUE
 
 secret_charset = string.ascii_letters + string.digits
 
@@ -131,18 +131,16 @@ class GitHubBot(Plugin):
     async def create_issue(self, evt: MessageEvent, repo: Tuple[str, str], data: str,
                            client: GitHubClient) -> None:
         title, body = data.split("\n", 1) if "\n" in data else (data, "")
-        repo_id = await client.query(query="repository (name: $name, owner: $owner) { id }",
-                                     args="$owner: String!, $name: String!",
-                                     variables={"owner": repo[0], "name": repo[1]},
-                                     path="repository.id")
-        issue = await client.mutate(query="createIssue(input: $input) { issue { number url } }",
-                                    args="$input: CreateIssueInput!",
-                                    variables={"input": {
-                                        "repositoryId": repo_id,
-                                        "title": title,
-                                        "body": body,
-                                    }},
-                                    path="createIssue.issue")
+        repo_id = await client.call(query=GET_REPO_INFO,
+                                    variables={"owner": repo[0], "name": repo[1]},
+                                    path="repository.id")
+        issue = await client.call(query=CREATE_ISSUE,
+                                  variables={"input": {
+                                      "repositoryId": repo_id,
+                                      "title": title,
+                                      "body": body,
+                                  }},
+                                  path="createIssue.issue")
         await evt.reply(f"Created [issue #{issue['number']}]({issue['url']})")
 
     @classmethod

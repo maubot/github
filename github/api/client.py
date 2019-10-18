@@ -13,12 +13,14 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Optional, Dict, Union, Tuple, Any, Awaitable
+from typing import Optional, Dict, Union, Any
 import random
 import string
 
 from aiohttp import ClientSession
 from yarl import URL
+
+from mautrix.util.config import RecursiveDict
 
 
 class GitHubClient:
@@ -63,39 +65,16 @@ class GitHubClient:
         data = await resp.json()
         self.token = data["access_token"]
 
-    @staticmethod
-    def _parse_key(key: str) -> Tuple[str, Optional[str]]:
-        if '.' not in key:
-            return key, None
-        key, next_key = key.split('.', 1)
-        if len(key) > 0 and key[0] == "[":
-            end_index = next_key.index("]")
-            key = key[1:] + "." + next_key[:end_index]
-            next_key = next_key[end_index + 2:] if len(next_key) > end_index + 1 else None
-        return key, next_key
-
     @classmethod
     def _recursive_get(cls, data: Dict, key: str) -> Any:
-        key, next_key = cls._parse_key(key)
+        key, next_key = RecursiveDict.parse_key(key)
         if next_key is not None:
             return cls._recursive_get(data[key], next_key)
         return data[key]
 
-    def query(self, query: str, args: str = "", variables: Optional[Dict] = None,
-              path: Optional[str] = None) -> Awaitable[Any]:
-        return self.call("query", query, args, variables, path)
-
-    def mutate(self, query: str, args: str = "", variables: Optional[Dict] = None,
-               path: Optional[str] = None) -> Awaitable[Any]:
-        return self.call("mutation", query, args, variables, path)
-
-    async def call(self, query_type: str, query: str, args: str, variables: Optional[Dict] = None,
-                   path: Optional[str] = None) -> Any:
-        full_query = query_type
-        if args:
-            full_query += f" ({args})"
-        full_query += " {%s}" % query
-        resp = await self.call_raw(full_query, variables)
+    async def call(self, query: str, variables: Optional[Dict] = None, path: Optional[str] = None
+                   ) -> Any:
+        resp = await self.call_raw(query, variables)
         print(resp)
         if path:
             return self._recursive_get(resp["data"], path)
