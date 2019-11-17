@@ -122,7 +122,7 @@ class GitHubBot(Plugin):
         resp = await client.call_raw(query, variables)
         await evt.reply("<pre><code class='language-json'>"
                         f"{json.dumps(resp, indent=2)}"
-                        "</code></pre>", html_in_markdown=True)
+                        "</code></pre>", allow_html=True)
 
     @github.subcommand("create", help="Create an issue.")
     @command.argument("repo", required=False, matches=r"([A-Za-z0-9-_]+)/([A-Za-z0-9-_]+)")
