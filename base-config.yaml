@@ -2,5 +2,9 @@
 client_id: 468af815560fb4587287
 client_secret: 02146f4074f8564ed17b7a6b7a1b95271537875a
 
-# Key for signing webhook secrets. If set to "generate", a random string will be generated.
+# Random string for signing webhook secrets.
+# If set to "generate", one will be generated for you.
 webhook_key: generate
+
+# Message type for webhook messages.
+msgtype: m.notice

@@ -13,8 +13,11 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Optional, NewType, List
+from typing import Optional, NewType, List, Union
 from datetime import datetime
+
+from attr import dataclass
+import attr
 
 from mautrix.types import SerializableAttrs, SerializableEnum, serializer, deserializer, JSON
 
@@ -43,9 +46,8 @@ def iso_datetime_deserializer(data: JSON) -> ISODateTime:
     return ISODateTime(datetime.strptime(data, ISO_FORMAT))
 
 
+@dataclass
 class User(SerializableAttrs['User']):
-    name: str
-    email: str
     login: str
     id: int
     node_id: str
@@ -65,13 +67,18 @@ class User(SerializableAttrs['User']):
     events_url: str
     received_events_url: str
 
+    name: Optional[str] = None
+    email: Optional[str] = None
 
+
+@dataclass
 class GitUser(SerializableAttrs['GitUser']):
     name: str
     email: str
     username: Optional[str] = None
 
 
+@dataclass
 class License(SerializableAttrs['License']):
     key: str
     name: str
@@ -80,6 +87,7 @@ class License(SerializableAttrs['License']):
     node_id: str
 
 
+@dataclass
 class Repository(SerializableAttrs['Repository']):
     id: int
     node_id: str
@@ -140,13 +148,9 @@ class Repository(SerializableAttrs['Repository']):
     homepage: Optional[str]
     size: int
     stargazers_count: int
-    stargazers: int
     watchers_count: int
-    watchers: int
     open_issues_count: int
-    open_issues: int
     forks_count: int
-    forks: int
     language: str
     license: Optional[License]
     has_issues: bool
@@ -158,9 +162,9 @@ class Repository(SerializableAttrs['Repository']):
     archived: bool
     disabled: bool
     default_branch: str
-    master_branch: int
 
 
+@dataclass
 class Commit(SerializableAttrs['Commit']):
     id: str
     tree_id: str
@@ -175,6 +179,7 @@ class Commit(SerializableAttrs['Commit']):
     modified: List[str]
 
 
+@dataclass
 class PushEvent(SerializableAttrs['PushEvent']):
     ref: str
     before: str
@@ -192,6 +197,7 @@ class PushEvent(SerializableAttrs['PushEvent']):
     sender: User
 
 
+@dataclass
 class ReleaseAsset(SerializableAttrs['ReleaseAsset']):
     id: int
     node_id: int
@@ -208,6 +214,7 @@ class ReleaseAsset(SerializableAttrs['ReleaseAsset']):
     uploader: User
 
 
+@dataclass
 class Release(SerializableAttrs['Release']):
     id: int
     node_id: str
@@ -241,6 +248,7 @@ class ReleaseAction(SerializableEnum):
     PRERELEASED = "prereleased"
 
 
+@dataclass
 class ReleaseEvent(SerializableAttrs['ReleaseEvent']):
     action: ReleaseAction
     release: Release
@@ -253,6 +261,7 @@ class StarAction(SerializableEnum):
     DELETED = "deleted"
 
 
+@dataclass
 class StarEvent(SerializableAttrs['StarEvent']):
     action: StarAction
     starred_at: ISODateTime
@@ -264,17 +273,20 @@ class WatchAction(SerializableEnum):
     STARTED = "started"
 
 
+@dataclass
 class WatchEvent(SerializableAttrs['StarEvent']):
     action: WatchAction
     repository: Repository
     sender: User
 
 
+@dataclass
 class ForkEvent(SerializableAttrs['ForkEvent']):
     forkee: Repository
     repository: Repository
 
 
+@dataclass
 class Label(SerializableAttrs['Label']):
     id: int
     node_id: str
@@ -289,6 +301,7 @@ class IssueState(SerializableEnum):
     CLOSED = "closed"
 
 
+@dataclass
 class Milestone(SerializableAttrs['Milestone']):
     id: int
     node_id: str
@@ -310,6 +323,7 @@ class Milestone(SerializableAttrs['Milestone']):
     labels_url: str
 
 
+@dataclass
 class Issue(SerializableAttrs['Issue']):
     id: int
     node_id: str
@@ -359,12 +373,104 @@ class IssueAction(SerializableEnum):
     DEMILESTONED = "demilestoned"
 
 
+@dataclass
+class Change(SerializableAttrs['Change']):
+    original: str = attr.ib(metadata={"json": "from"})
+
+
+@dataclass
+class IssueChanges(SerializableAttrs['IssueChanges']):
+    body: Change
+    title: Change
+
+
+@dataclass
 class IssuesEvent(SerializableAttrs['IssuesEvent']):
     action: IssueAction
     issue: Issue
-    changes: JSON
+    repository: Repository
+    sender: User
+    changes: Optional[JSON] = None
+
+
+@dataclass
+class Comment(SerializableAttrs['Comment']):
+    id: int
+    node_id: int
+    url: str
+    html_url: str
+    body: str
+    user: User
+    created_at: ISODateTime
+    updated_at: Optional[ISODateTime]
+
+
+class IssueCommentAction(SerializableEnum):
+    CREATED = "created"
+    EDITED = "edited"
+    DELETED = "deleted"
+
+
+@dataclass
+class IssueCommentEvent(SerializableAttrs['IssueCommentEvent']):
+    action: IssueCommentAction
+    issue: Issue
+    comment: Comment
     repository: Repository
     sender: User
 
-# TODO: Label, IssueComment, CommitComment, PullRequest, PullRequestReview, PullRequestReviewComment
+
+@dataclass
+class WebhookResponse(SerializableAttrs['WebhookResponse']):
+    code: Optional[int]
+    status: str
+    message: Optional[str]
+
+
+@dataclass
+class WebhookConfig(SerializableAttrs['WebhookConfig']):
+    url: str
+    content_type: Optional[str] = None
+    secret: Optional[str] = None
+    insecure_ssl: Optional[str] = None
+
+
+@dataclass
+class Webhook(SerializableAttrs['Webhook']):
+    id: int
+    type: str
+    name: str
+    active: bool
+    events: List[str]
+    config: WebhookConfig
+    created_at: ISODateTime
+    updated_at: Optional[ISODateTime]
+    url: str
+    test_url: str
+    ping_url: str
+    last_response: WebhookResponse
+
+
+@dataclass
+class PingEvent(SerializableAttrs['PingEvent']):
+    zen: str
+    hook_id: int
+    hook: Webhook
+
+
+# TODO: Label, CommitComment, PullRequest, PullRequestReview, PullRequestReviewComment
 #       RepositoryEvent, etc
+
+
+Event = Union[IssuesEvent, IssueCommentEvent, PushEvent, ReleaseEvent, StarEvent, WatchEvent,
+              PingEvent]
+
+EVENT_TYPES = {
+    "issues": IssuesEvent,
+    "issue_comment": IssueCommentEvent,
+    "push": PushEvent,
+    "release": ReleaseEvent,
+    "star": StarEvent,
+    "watch": WatchEvent,
+    "ping": PingEvent,
+}

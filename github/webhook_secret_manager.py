@@ -13,13 +13,12 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Dict, Optional
-from dataclasses import dataclass
+from typing import Dict, Optional, Any, Generator
 from uuid import UUID, uuid4
 import hashlib
 import hmac
 
-from sqlalchemy import MetaData, Table, Column, String, Integer
+from sqlalchemy import MetaData, Table, Column, String, Integer, UniqueConstraint, and_
 from sqlalchemy.engine.base import Engine
 
 from mautrix.types import UserID, RoomID
@@ -27,22 +26,39 @@ from mautrix.types import UserID, RoomID
 from .util import UUIDType
 
 
-@dataclass(frozen=True)
 class WebhookInfo:
+    __slots__ = ("id", "repo", "user_id", "room_id", "github_id", "_secret_key", "__initialized")
     id: UUID
     repo: str
     user_id: UserID
     room_id: RoomID
-    github_id: Optional[int] = None
-    _secret_key: Optional[bytes] = None
+    github_id: Optional[int]
 
     def __init__(self, id: UUID, repo: str, user_id: UserID, room_id: RoomID,
-                 github_id: Optional[int] = None, *, _manager: 'WebhookSecretManager') -> None:
-        super().__init__(id, repo, user_id, room_id, github_id,
-                         _secret_key=_manager._secret.encode("utf-8"))
+                 github_id: Optional[int] = None, _secret_key: bytes = None) -> None:
+        self.id = id
+        self.repo = repo
+        self.user_id = user_id
+        self.room_id = room_id
+        self.github_id = github_id
+        self._secret_key = _secret_key
+        self.__initialized = True
 
-    def __hash__(self) -> int:
-        return hash(self.id.int)
+    def __repr__(self) -> str:
+        return (f"WebhookInfo(id={self.id!r}, repo={self.repo!r}, user_id={self.user_id!r},"
+                f" room_id={self.room_id!r}, github_id={self.github_id!r})")
+
+    def __str__(self) -> str:
+        return (f"webhook {self.id!s} (GH{self.github_id}) from {self.repo} to {self.room_id}"
+                f" added by {self.user_id}")
+
+    def __delattr__(self, item) -> None:
+        raise ValueError("Can't change attributes after initialization")
+
+    def __setattr__(self, key: str, value: Any) -> None:
+        if hasattr(self, "__initialized"):
+            raise ValueError("Can't change attributes after initialization")
+        super().__setattr__(key, value)
 
     @property
     def secret(self) -> str:
@@ -57,26 +73,27 @@ class WebhookInfo:
 class WebhookSecretManager:
     _table: Table
     _db: Engine
-    _secret: str
+    _secret: bytes
     _webhooks: Dict[UUID, WebhookInfo]
 
     def __init__(self, secret: str, db: Engine, metadata: MetaData):
-        self._secret = secret
+        self._secret = secret.encode("utf-8")
         self._db = db
         self._table = Table("webhook", metadata,
                             Column("id", UUIDType, primary_key=True),
                             Column("repo", String(255), nullable=False),
                             Column("user_id", String(255), nullable=False),
                             Column("room_id", String(255), nullable=False),
-                            Column("github_id", Integer, nullable=True))
-        self._clients = {}
+                            Column("github_id", Integer, nullable=True),
+                            UniqueConstraint("repo", "room_id"))
+        self._webhooks = {}
 
     def create(self, repo: str, user_id: UserID, room_id: RoomID) -> WebhookInfo:
         info = WebhookInfo(id=uuid4(),
                            repo=repo,
                            user_id=user_id,
                            room_id=room_id,
-                           _manager=self)
+                           _secret_key=self._secret)
         self._db.execute(self._table.insert().values(
             id=info.id, github_id=info.github_id, repo=repo,
             user_id=info.user_id, room_id=info.room_id))
@@ -96,17 +113,37 @@ class WebhookSecretManager:
         except KeyError:
             pass
 
-    def _select(self, id: UUID) -> Optional[WebhookInfo]:
-        rows = self._db.execute(self._table.select().where(self._table.c.id == id))
+    def _execute_select(self, *where_clause) -> Optional[WebhookInfo]:
+        rows = self._db.execute(self._table.select().where(*where_clause if len(where_clause) < 2
+        else and_(*where_clause)))
         try:
-            info = WebhookInfo(*next(rows), _manager=self)
+            info = WebhookInfo(*next(rows), _secret_key=self._secret)
             self._webhooks[info.id] = info
             return info
         except StopIteration:
             return None
+
+    def _select(self, id: UUID) -> Optional[WebhookInfo]:
+        return self._execute_select(self._table.c.id == id)
 
     def get(self, id: UUID) -> Optional[WebhookInfo]:
         try:
             return self._webhooks[id]
         except KeyError:
             return self._select(id)
+
+    def get_all_for_room(self, room_id: RoomID) -> Generator[WebhookInfo, None, None]:
+        rows = self._db.execute(self._table.select().where(self._table.c.room_id == room_id))
+        return (WebhookInfo(*row, _secret_key=self._secret) for row in rows)
+
+    def find(self, repo: str, room_id: RoomID) -> Optional[WebhookInfo]:
+        return self._execute_select(self._table.c.repo == repo, self._table.c.room_id == room_id)
+
+    def __delitem__(self, key: UUID) -> None:
+        self.delete(key)
+
+    def __getitem__(self, item: UUID) -> WebhookInfo:
+        value = self.get(item)
+        if not value:
+            raise KeyError(item)
+        return value

@@ -17,23 +17,31 @@ from typing import Dict, Union, Callable, Awaitable
 import hashlib
 import hmac
 import json
+import uuid
 
 from aiohttp import web
 
+from mautrix.types import SerializerError
+from maubot.handlers import web as web_handler
+
+from ..webhook_secret_manager import WebhookSecretManager
+from ..webhook_handler import WebhookHandler
+from ..util.types import EVENT_TYPES
+
 
 class GitHubWebhookReceiver:
-    handler: Callable[[Dict], Awaitable]
-    secret: Callable[[web.Request], str]
+    handler: WebhookHandler
+    secrets: WebhookSecretManager
 
-    def __init__(self, handler: Callable[[Dict], Awaitable],
-                 secret: Union[str, Callable[[web.Request], str]]) -> None:
+    def __init__(self, handler: WebhookHandler, secrets: WebhookSecretManager) -> None:
         self.handler = handler
-        self.secret = lambda r: secret if isinstance(secret, str) else secret
+        self.secrets = secrets
 
+    @web_handler.post("/webhook/{id}")
     async def handle(self, request: web.Request) -> web.Response:
         try:
-            secret = self.secret(request)
-        except KeyError:
+            webhook_info = self.secrets[uuid.UUID(request.match_info["id"])]
+        except (ValueError, KeyError):
             return web.Response(status=404, text="Webhook not found")
         try:
             signature = request.headers["X-Hub-Signature"]
@@ -42,20 +50,29 @@ class GitHubWebhookReceiver:
         except KeyError as e:
             return web.Response(status=400, text=f"Missing {e.args[0]} header")
         text = await request.text()
-        text_binary = text.encode('utf-8')
+        text_binary = text.encode("utf-8")
+        secret = webhook_info.secret.encode("utf-8")
         digest = f"sha1={hmac.new(secret, text_binary, hashlib.sha1).hexdigest()}"
         if not hmac.compare_digest(signature, digest):
             return web.Response(status=401, text="Invalid signature")
         try:
             data = json.loads(text)
         except json.JSONDecodeError:
-            return web.Response(status=400, text="JSON parse error")
+            return web.Response(status=400, text="Malformed JSON")
         if not data:
-            return web.Response(status=400, text="Request body must be JSON")
-        data["__event_type__"] = event_type
-        data["__delivery_id__"] = delivery_id
-        data["__request__"] = request
-        resp = await self.handler(data)
+            return web.Response(status=400, text="Malformed JSON")
+        try:
+            type_class = EVENT_TYPES[event_type]
+        except KeyError:
+            print("Unsupported event type", event_type, data)
+            return web.Response(status=500, text="Unsupported event type")
+        try:
+            event = type_class.deserialize(data)
+        except SerializerError as e:
+            print("Failed to deserialize", data)
+            print(e)
+            return web.Response(status=500, text="Failed to parse event content")
+        resp = await self.handler(event, delivery_id=delivery_id, webhook_info=webhook_info)
         if not isinstance(resp, web.Response):
             resp = web.Response(status=200)
         return resp

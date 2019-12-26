@@ -20,6 +20,7 @@ from sqlalchemy.engine.base import Engine
 from aiohttp import web, ClientError, ClientSession
 
 from mautrix.types import UserID
+from maubot.handlers import web as web_handler
 
 from .api import GitHubClient
 
@@ -69,6 +70,7 @@ class ClientManager:
                 return client
             return None
 
+    @web_handler.get("/auth")
     async def login_callback(self, request: web.Request) -> web.Response:
         try:
             user_id = UserID(request.query["user_id"])
@@ -77,6 +79,8 @@ class ClientManager:
         except KeyError as e:
             return web.Response(status=400, text=f"Missing {e.args[0]} parameter")
         client = self.get(user_id)
+        if not client:
+            return web.Response(status=401, text="Invalid state token")
         try:
             await client.finish_login(code, state)
         except ValueError:

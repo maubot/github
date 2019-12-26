@@ -13,18 +13,32 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Optional, Dict, Union, Tuple, Any, Awaitable
+from typing import Optional, Dict, Union, Tuple, Any, Awaitable, List
 import random
 import string
+import json
 
 from aiohttp import ClientSession
 from yarl import URL
 
+from ..util.types import Webhook
+
+OptStrList = Optional[List[str]]
+
+
+class GitHubError(Exception):
+    def __init__(self, message: str, documentation_url: str, **kwargs) -> None:
+        super().__init__(message)
+        self.documentation_url = documentation_url
+        self.kwargs = kwargs
+
 
 class GitHubClient:
-    api_url: URL = URL("https://api.github.com/graphql")
-    login_url: URL = URL("https://github.com/login/oauth/authorize")
-    login_finish_url: URL = URL("https://github.com/login/oauth/access_token")
+    base_url: URL = URL("https://api.github.com")
+    api_url: URL = base_url / "graphql"
+    user_base_url: URL = URL("https://github.com")
+    login_url: URL = user_base_url / "login" / "oauth" / "authorize"
+    login_finish_url: URL = user_base_url / "login" / "oauth" / "access_token"
 
     client_id: str
     client_secret: str
@@ -101,14 +115,95 @@ class GitHubClient:
             return self._recursive_get(resp["data"], path)
         return resp["data"]
 
+    @property
+    def headers(self) -> Dict[str, str]:
+        return {
+            "Authorization": f"token {self.token}",
+            "Accept": "application/json",
+        }
+
     async def call_raw(self, query: str, variables: Optional[Dict] = None) -> dict:
         resp = await self.http.post(self.api_url,
                                     json={
                                         "query": query,
                                         "variables": variables or {}
                                     },
-                                    headers={
-                                        "Authorization": f"token {self.token}",
-                                        "Accept": "application/json",
-                                    })
+                                    headers=self.headers)
         return await resp.json()
+
+    async def list_webhooks(self, owner: str, repo: str) -> List[Webhook]:
+        resp = await self.http.get(self.base_url / "repos" / owner / repo / "hooks",
+                                   headers=self.headers)
+        return [Webhook.deserialize(info) for info in await resp.json()]
+
+    async def get_webhook(self, owner: str, repo: str, hook_id: int) -> Webhook:
+        resp = await self.http.get(self.base_url / "repos" / owner / repo / "hooks" / str(hook_id),
+                                   headers=self.headers)
+        data = await resp.json()
+        if resp.status != 200:
+            raise GitHubError(**data)
+        return Webhook.deserialize(data)
+
+    async def create_webhook(self, owner: str, repo: str, url: URL, *, active: bool = True,
+                             events: OptStrList = None, content_type: str = "form",
+                             secret: Optional[str] = None, insecure_ssl: bool = False) -> Webhook:
+        payload = {
+            "name": "web",
+            "config": {
+                "url": str(url),
+                "content_type": content_type,
+                "secret": secret,
+                "insecure_ssl": "1" if insecure_ssl else "0",
+            },
+            "events": events or ["push"],
+            "active": active,
+        }
+        print(self.base_url / "repos" / owner / repo / "hooks")
+        print(payload)
+        resp = await self.http.post(self.base_url / "repos" / owner / repo / "hooks",
+                                    data=json.dumps(payload), headers=self.headers)
+        data = await resp.json()
+        if resp.status != 201:
+            raise GitHubError(**data)
+        return Webhook.deserialize(data)
+
+    async def edit_webhook(self, owner: str, repo: str, hook_id: int, *, url: Optional[URL] = None,
+                           active: Optional[bool] = None, events: OptStrList = None,
+                           add_events: OptStrList = None, remove_events: OptStrList = None,
+                           content_type: Optional[str] = None, secret: Optional[str] = None,
+                           insecure_ssl: Optional[str] = None) -> Webhook:
+        payload = {}
+        if events:
+            if add_events or remove_events:
+                raise ValueError("Cannot override event list and add/remove at the same time")
+            payload["events"] = events
+        if add_events or remove_events:
+            payload["add_events"] = add_events or []
+            payload["remove_events"] = remove_events or []
+        if active is not None:
+            payload["active"] = active
+        config = {}
+        if url is not None:
+            config["url"] = str(url)
+        if content_type is not None:
+            config["content_type"] = content_type
+        if secret is not None:
+            config["secret"] = secret
+        if insecure_ssl is not None:
+            config["insecure_ssl"] = "1" if insecure_ssl else "0"
+        if config:
+            payload["config"] = config
+        resp = await self.http.patch(
+            self.base_url / "repos" / owner / repo / "hooks" / str(hook_id),
+            data=json.dumps(payload), headers=self.headers)
+        data = await resp.json()
+        if resp.status != 200:
+            raise GitHubError(**data)
+        return Webhook.deserialize(data)
+
+    async def delete_webhook(self, owner: str, repo: str, hook_id: int) -> None:
+        resp = await self.http.delete(
+            self.base_url / "repos" / owner / repo / "hooks" / str(hook_id), headers=self.headers)
+        if resp.status != 204:
+            data = await resp.json()
+            raise GitHubError(**data)
