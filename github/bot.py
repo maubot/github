@@ -13,7 +13,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Type, Dict, Tuple, Awaitable, Callable
+from typing import Type, Dict, Tuple, Awaitable, Callable, Optional
 import string
 import json
 
@@ -27,6 +27,7 @@ from maubot import Plugin, MessageEvent
 from maubot.handlers import command
 
 from .client_manager import ClientManager
+from .webhook_secret_manager import WebhookSecretManager
 from .api import GitHubWebhookReceiver, GitHubClient
 
 secret_charset = string.ascii_letters + string.digits
@@ -40,6 +41,7 @@ class Config(BaseProxyConfig):
 
 class GitHubBot(Plugin):
     webhook_receiver: GitHubWebhookReceiver
+    webhook_secrets: WebhookSecretManager
     clients: ClientManager
 
     async def start(self) -> None:
@@ -49,6 +51,8 @@ class GitHubBot(Plugin):
         metadata = MetaData()
         self.clients = ClientManager(self.config["client_id"], self.config["client_secret"],
                                      self.http, self.database, metadata)
+        self.webhook_secrets = WebhookSecretManager(self.config["webhook_secret"],
+                                                    self.database, metadata)
         metadata.create_all(self.database)
 
         self.clients.load_db()
@@ -56,7 +60,7 @@ class GitHubBot(Plugin):
         self.webhook_receiver = GitHubWebhookReceiver(handler=self.webhook,
                                                       secret=self.get_webhook_secret)
 
-        self.webapp.add_post("/webhook/{id}", self.webhook_receiver.handle)
+        self.webapp.add_post("/webhook/{uuid}", self.webhook_receiver.handle)
         self.webapp.add_get("/auth", self.clients.login_callback)
 
     def on_external_config_update(self) -> None:
@@ -64,9 +68,9 @@ class GitHubBot(Plugin):
         self.clients.client_id = self.config["client_id"]
         self.clients.client_secret = self.config["client_secret"]
 
-    def get_webhook_secret(self, request: web.Request) -> str:
-        request_id = request.match_info["id"]
-        return "TODO"
+    def get_webhook_secret(self, request: web.Request) -> Optional[str]:
+        webhook = self.webhook_secrets.get(request.match_info["uuid"])
+        return webhook.secret if webhook else None
 
     async def webhook(self, data: Dict) -> None:
         request_id = data["__request__"].match_info["id"]

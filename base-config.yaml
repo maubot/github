@@ -1,3 +1,6 @@
 # Create a GitHub OAuth app at https://github.com/settings/developers
 client_id: 468af815560fb4587287
 client_secret: 02146f4074f8564ed17b7a6b7a1b95271537875a
+
+# Key for signing webhook secrets. If set to "generate", a random string will be generated.
+webhook_key: generate

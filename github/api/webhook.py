@@ -14,9 +14,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from typing import Dict, Union, Callable, Awaitable
-from json import JSONDecodeError
 import hashlib
 import hmac
+import json
 
 from aiohttp import web
 
@@ -41,18 +41,19 @@ class GitHubWebhookReceiver:
             delivery_id = request.headers["X-Github-Delivery"]
         except KeyError as e:
             return web.Response(status=400, text=f"Missing {e.args[0]} header")
-        digest = f"sha1={hmac.new(secret, await request.text(), hashlib.sha1).hexdigest()}"
+        text = await request.text()
+        text_binary = text.encode('utf-8')
+        digest = f"sha1={hmac.new(secret, text_binary, hashlib.sha1).hexdigest()}"
         if not hmac.compare_digest(signature, digest):
             return web.Response(status=401, text="Invalid signature")
         try:
-            data = await request.json()
-        except JSONDecodeError:
+            data = json.loads(text)
+        except json.JSONDecodeError:
             return web.Response(status=400, text="JSON parse error")
         if not data:
             return web.Response(status=400, text="Request body must be JSON")
         data["__event_type__"] = event_type
         data["__delivery_id__"] = delivery_id
-        data["__secret__"] = secret
         data["__request__"] = request
         resp = await self.handler(data)
         if not isinstance(resp, web.Response):
