@@ -13,7 +13,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Optional, Dict, Union, Tuple, Any, Awaitable, List
+from typing import Optional, Dict, Union, Any, Awaitable, List
 import random
 import string
 import json
@@ -21,7 +21,8 @@ import json
 from aiohttp import ClientSession
 from yarl import URL
 
-from ..util.types import Webhook
+from github.api.types import Webhook
+from ..util import recursive_get
 
 OptStrList = Optional[List[str]]
 
@@ -77,24 +78,6 @@ class GitHubClient:
         data = await resp.json()
         self.token = data["access_token"]
 
-    @staticmethod
-    def _parse_key(key: str) -> Tuple[str, Optional[str]]:
-        if '.' not in key:
-            return key, None
-        key, next_key = key.split('.', 1)
-        if len(key) > 0 and key[0] == "[":
-            end_index = next_key.index("]")
-            key = key[1:] + "." + next_key[:end_index]
-            next_key = next_key[end_index + 2:] if len(next_key) > end_index + 1 else None
-        return key, next_key
-
-    @classmethod
-    def _recursive_get(cls, data: Dict, key: str) -> Any:
-        key, next_key = cls._parse_key(key)
-        if next_key is not None:
-            return cls._recursive_get(data[key], next_key)
-        return data[key]
-
     def query(self, query: str, args: str = "", variables: Optional[Dict] = None,
               path: Optional[str] = None) -> Awaitable[Any]:
         return self.call("query", query, args, variables, path)
@@ -112,7 +95,7 @@ class GitHubClient:
         resp = await self.call_raw(full_query, variables)
         print(resp)
         if path:
-            return self._recursive_get(resp["data"], path)
+            return recursive_get(resp["data"], path)
         return resp["data"]
 
     @property

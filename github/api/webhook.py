@@ -13,7 +13,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Dict, Union, Callable, Awaitable
+from typing import TYPE_CHECKING
 import hashlib
 import hmac
 import json
@@ -24,16 +24,23 @@ from aiohttp import web
 from mautrix.types import SerializerError
 from maubot.handlers import web as web_handler
 
-from ..webhook_secret_manager import WebhookSecretManager
-from ..webhook_handler import WebhookHandler
-from ..util.types import EVENT_TYPES
+from ..api.types import EVENT_TYPES
+
+
+if TYPE_CHECKING:
+    from ..webhook_manager import WebhookManager
+    from ..webhook_handler import WebhookHandler
+
+
+import traceback
+from pprint import pprint
 
 
 class GitHubWebhookReceiver:
-    handler: WebhookHandler
-    secrets: WebhookSecretManager
+    handler: 'WebhookHandler'
+    secrets: 'WebhookManager'
 
-    def __init__(self, handler: WebhookHandler, secrets: WebhookSecretManager) -> None:
+    def __init__(self, handler: 'WebhookHandler', secrets: 'WebhookManager') -> None:
         self.handler = handler
         self.secrets = secrets
 
@@ -61,6 +68,7 @@ class GitHubWebhookReceiver:
             return web.Response(status=400, text="Malformed JSON")
         if not data:
             return web.Response(status=400, text="Malformed JSON")
+        pprint(data)
         try:
             type_class = EVENT_TYPES[event_type]
         except KeyError:
@@ -68,11 +76,11 @@ class GitHubWebhookReceiver:
             return web.Response(status=500, text="Unsupported event type")
         try:
             event = type_class.deserialize(data)
-        except SerializerError as e:
-            print("Failed to deserialize", data)
-            print(e)
+        except SerializerError:
+            traceback.print_exc()
             return web.Response(status=500, text="Failed to parse event content")
-        resp = await self.handler(event, delivery_id=delivery_id, webhook_info=webhook_info)
+        resp = await self.handler(event_type, event,
+                                  delivery_id=delivery_id, webhook_info=webhook_info)
         if not isinstance(resp, web.Response):
             resp = web.Response(status=200)
         return resp

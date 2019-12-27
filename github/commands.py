@@ -116,7 +116,7 @@ class Commands:
 
     @webhook.subcommand("list", help="List webhooks in this room.")
     async def webhook_list(self, evt: MessageEvent) -> None:
-        hooks = self.bot.webhook_secrets.get_all_for_room(evt.room_id)
+        hooks = self.bot.webhooks.get_all_for_room(evt.room_id)
         info = "\n".join(f"* `{hook.repo}` added by "
                          f"[{hook.user_id}](https://matrix.to/#/{hook.user_id})"
                          for hook in hooks)
@@ -128,12 +128,12 @@ class Commands:
     async def webhook_create(self, evt: MessageEvent, repo: Tuple[str, str], client: GitHubClient
                              ) -> None:
         repo_name = f"{repo[0]}/{repo[1]}"
-        existing = self.bot.webhook_secrets.find(repo_name, evt.room_id)
+        existing = self.bot.webhooks.find(repo_name, evt.room_id)
         if existing:
             await evt.reply("This room already has a webhook for that repo")
             # TODO webhook may be deleted on github side
             return
-        webhook_info = self.bot.webhook_secrets.create(repo_name, evt.sender, evt.room_id)
+        webhook_info = self.bot.webhooks.create(repo_name, evt.sender, evt.room_id)
         await client.create_webhook(*repo, self.bot.webapp_url / "webhook" / str(webhook_info.id),
                                     secret=webhook_info.secret, content_type="json",
                                     events=["*"])
@@ -145,11 +145,11 @@ class Commands:
     async def webhook_remove(self, evt: MessageEvent, repo: Tuple[str, str],
                              client: Optional[GitHubClient]) -> None:
         repo_name = f"{repo[0]}/{repo[1]}"
-        webhook_info = self.bot.webhook_secrets.find(repo_name, evt.room_id)
+        webhook_info = self.bot.webhooks.find(repo_name, evt.room_id)
         if not webhook_info:
             await evt.reply("This room does not have a webhook for that repo")
             return
-        self.bot.webhook_secrets.delete(webhook_info.id)
+        self.bot.webhooks.delete(webhook_info.id)
         if webhook_info.github_id:
             if client:
                 await client.delete_webhook(*repo, hook_id=webhook_info.github_id)

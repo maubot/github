@@ -8,3 +8,83 @@ webhook_key: generate
 
 # Message type for webhook messages.
 msgtype: m.notice
+
+# Templates are Jinja2 templates that get all the event fields as arguments,
+# like message templates do. You can insert them into messages and other
+# templates as if they were arguments.
+templates:
+  repo_prefix: '[<a href="{{ repository.html_url }}">{{ repository.full_name|e }}</a>]'
+  repo_sender_prefix: '{{ templates.repo_prefix }} {{ user_link(sender) }}'
+  issue_link: '<a href="{{ issue.html_url }}">issue #{{ issue.number }}</a>: {{ issue.title|e }}'
+
+# Macros is a single Jinja2 template that is prepended to all other templates.
+# It is useful for having macro functions that are usable anywhere.
+macros: >
+  {%- macro fancy_label(label) -%}
+    <font
+      {% set fg_color = util.contrast_fg(label.color) %}
+      data-mx-fg-color="#{{ fg_color }}" color="#{{ fg_color }}"
+      data-mx-bg-color="#{{ label.color }}"
+      title="{{ label.description }}"
+    >&nbsp;{{ label.name }}&nbsp;</font>
+  {%- endmacro -%}
+
+  {%- macro user_link(user) -%}
+    <a href="{{ user.html_url }}">{{ (user.name or user.login)|e }}</a>
+  {%- endmacro -%}
+
+  {%- macro milestone_link(milestone) -%}
+    milestone <a href="{{ milestone.html_url }}">{{ milestone.title|e }}</a>
+  {%- endmacro -%}
+
+
+# Messages are the actual message templates. Each template here corresponds to
+# a specific event received through a GitHub webhook.
+messages:
+  ping: null
+
+  star: >
+    {{ templates.repo_prefix }} Repo {% if action == StarAction.DELETED %}un{% endif %}starred by {{ user_link(sender) }}
+
+  issues: >
+    {{ templates.repo_sender_prefix }}
+    {% if action == IssueAction.OPENED %}
+      opened {{ templates.issue_link }}
+      {% if issue.body %}
+        <blockquote>{{ issue.body|e }}</blockquote>
+      {% endif %}
+      {% for label in issue.labels %}
+        {{ fancy_label(label) }}
+      {% endfor %}
+    {% elif action == IssueAction.LABELED %}      added {{ fancy_label(label) }} to
+    {% elif action == IssueAction.UNLABELED %}    removed {{ fancy_label(label) }} from
+    {% elif action == IssueAction.MILESTONED %}   added {{ templates.issue_link }} to {{ milestone_link(milestone) }}
+    {% elif action == IssueAction.DEMILESTONED %} removed {{ templates.issue_link }} from {{ milestone_link(milestone) }}
+    {% elif action == IssueAction.ASSIGNED %}     assigned {{ user_link(assignee) }} to
+    {% elif action == IssueAction.UNASSIGNED %}   unassigned {{ user_link(assignee) }} from
+    {% else %}                                    {{ action }}
+    {% endif %}
+    {% if action not in (IssueAction.OPENED, IssueAction.MILESTONED, IssueAction.DEMILESTONED) %}
+      {{ templates.issue_link }}
+    {% endif %}
+
+  push: >
+    {{ templates.repo_sender_prefix }}
+    {% if forced %}force{% endif %}
+    {% if deleted %}deleted {{ util.ref_type(ref) }}
+    {% else %}pushed to
+    {% endif %}
+    {{ util.ref_name(ref) }}
+    {%- if created %} (new {{ util.ref_type(ref) }}){% endif -%}
+    {%- if commits|length > 0 %}:{% endif -%}
+    <ul>
+    {% for commit in commits %}
+      <li>
+        <code><a href="{{ commit.url }}">{{ commit.id[:8] }}</a></code>
+        {{ util.cut_message(commit.message) }}
+        {% if commit.author.username != sender.login %}
+          by {{ user_link(commit.author) }}
+        {% endif %}
+      </li>
+    {% endfor %}
+    </ul>

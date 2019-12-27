@@ -16,55 +16,67 @@
 from typing import NamedTuple, TYPE_CHECKING
 import logging
 
-from mautrix.types import TextMessageEventContent, Format, MessageType, RoomID
-from maubot.matrix import parse_formatted
+from jinja2 import TemplateNotFound
+import attr
 
-from .webhook_secret_manager import WebhookInfo
-from .util.types import Event, PingEvent, StarEvent, StarAction, IssuesEvent
+from mautrix.types import TextMessageEventContent, Format, MessageType, RoomID
+from mautrix.util.formatter import parse_html
+
+from .webhook_manager import WebhookInfo
+from .template import TemplateManager, TemplateProxy, TemplateUtil
+from .api.types import Event, IssueAction, StarAction
 
 if TYPE_CHECKING:
     from .bot import GitHubBot
 
 
 class WebhookMessageInfo(NamedTuple):
+    room_id: RoomID
     delivery_id: str
-    room_id: str
+    event: Event
 
 
 class WebhookHandler:
     log: logging.Logger
     bot: 'GitHubBot'
     msgtype: MessageType
+    messages: TemplateManager
+    templates: TemplateManager
 
     def __init__(self, bot: 'GitHubBot') -> None:
         self.bot = bot
         self.log = self.bot.log.getChild("webhook")
         self.msgtype = MessageType(bot.config["msgtype"]) or MessageType.NOTICE
+        self.messages = TemplateManager(self.bot.config, "messages")
+        self.templates = TemplateManager(self.bot.config, "templates")
 
-    async def __call__(self, evt: Event, delivery_id: str, webhook_info: WebhookInfo) -> None:
-        if isinstance(evt, PingEvent):
-            await self.handle_ping(evt, webhook_info)
-        elif isinstance(evt, StarEvent):
-            await self.handle_star(evt, delivery_id, webhook_info)
-        elif isinstance(evt, IssuesEvent):
-            print("Issue event", evt)
-        else:
-            self.log.debug(f"Unhandled event: {evt} -- {delivery_id} {webhook_info}")
+    def reload_templates(self) -> None:
+        self.messages.reload()
+        self.templates.reload()
 
-    async def handle_ping(self, evt: PingEvent, webhook_info: WebhookInfo) -> None:
-        webhook_info = self.bot.webhook_secrets.set_github_id(webhook_info, evt.hook_id)
-        self.log.debug(f"Received ping for {webhook_info}: {evt.zen}")
+    async def __call__(self, evt_type: str, evt: Event, delivery_id: str, webhook_info: WebhookInfo
+                       ) -> None:
+        evt_info = WebhookMessageInfo(room_id=webhook_info.room_id, delivery_id=delivery_id,
+                                      event=evt)
+        if evt_type == "ping":
+            webhook_info = self.bot.webhooks.set_github_id(webhook_info, evt.hook_id)
+            self.log.debug(f"Received ping for {webhook_info}: {evt.zen}")
+        try:
+            await self._send_message(evt_type, evt_info)
+        except TemplateNotFound:
+            self.log.debug(f"Unhandled event of type {type(evt)} -- {delivery_id} {webhook_info}")
 
-    async def handle_star(self, evt: StarEvent, delivery_id: str, webhook_info: WebhookInfo) -> None:
-        action = "starred" if evt.action == StarAction.CREATED else "unstarred"
-        msg = (f"[[{evt.repository.full_name}]({evt.repository.html_url})] Repo {action} by"
-               f" [{evt.sender.name or evt.sender.login}]({evt.sender.html_url})")
-        await self.send_message(webhook_info.room_id, msg, delivery_id=delivery_id)
-
-    async def handle_issue(self, evt: IssuesEvent, delivery_id: str, webhook_info: WebhookInfo) -> None:
-
-    async def send_message(self, room_id: RoomID, msg: str, delivery_id: str) -> None:
-        content = TextMessageEventContent(msgtype=self.msgtype, format=Format.HTML)
-        content.body, content.formatted_body = parse_formatted(msg)
-        content["xyz.maubot.github.delivery_id"] = delivery_id
-        await self.bot.client.send_message(room_id, content)
+    async def _send_message(self, template: str, info: WebhookMessageInfo) -> None:
+        tpl = self.messages[template]
+        args = attr.asdict(info.event, recurse=False)
+        args["templates"] = TemplateProxy(self.templates._env, args)
+        args["util"] = TemplateUtil
+        args["IssueAction"] = IssueAction
+        args["StarAction"] = StarAction
+        content = TextMessageEventContent(msgtype=self.msgtype, format=Format.HTML,
+                                          formatted_body=tpl.render(**args))
+        if not content.formatted_body:
+            return
+        content.body = parse_html(content.formatted_body)
+        content["xyz.maubot.github.delivery_id"] = info.delivery_id
+        await self.bot.client.send_message(info.room_id, content)

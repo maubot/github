@@ -21,29 +21,21 @@ import attr
 
 from mautrix.types import SerializableAttrs, SerializableEnum, serializer, deserializer, JSON
 
-UnixDateTime = NewType("UnixDateTime", datetime)
-ISODateTime = NewType("ISODateTime", datetime)
+HubDateTime = NewType("HubDateTime", datetime)
 ISO_FORMAT = "%Y-%m-%dT%H:%M:%S%z"
 
 
-@serializer(UnixDateTime)
-def unix_datetime_serializer(dt: UnixDateTime) -> JSON:
-    return int(dt.timestamp())
-
-
-@deserializer(UnixDateTime)
-def unix_datetime_deserializer(data: JSON) -> UnixDateTime:
-    return UnixDateTime(datetime.utcfromtimestamp(data))
-
-
-@serializer(ISODateTime)
-def iso_datetime_serializer(dt: UnixDateTime) -> JSON:
+@serializer(HubDateTime)
+def datetime_serializer(dt: HubDateTime) -> JSON:
     return dt.strftime(ISO_FORMAT)
 
 
-@deserializer(ISODateTime)
-def iso_datetime_deserializer(data: JSON) -> ISODateTime:
-    return ISODateTime(datetime.strptime(data, ISO_FORMAT))
+@deserializer(HubDateTime)
+def datetime_deserializer(data: JSON) -> HubDateTime:
+    if isinstance(data, int):
+        return HubDateTime(datetime.utcfromtimestamp(data))
+    else:
+        return HubDateTime(datetime.strptime(data, ISO_FORMAT))
 
 
 @dataclass
@@ -136,9 +128,9 @@ class Repository(SerializableAttrs['Repository']):
     releases_url: str
     deployments_url: str
 
-    created_at: UnixDateTime
-    updated_at: Optional[ISODateTime]
-    pushed_at: UnixDateTime
+    created_at: HubDateTime
+    updated_at: Optional[HubDateTime]
+    pushed_at: Optional[HubDateTime]
 
     git_url: str
     ssh_url: str
@@ -170,7 +162,7 @@ class Commit(SerializableAttrs['Commit']):
     tree_id: str
     distinct: bool
     message: str
-    timestamp: ISODateTime
+    timestamp: HubDateTime
     url: str
     author: GitUser
     committer: GitUser
@@ -209,8 +201,8 @@ class ReleaseAsset(SerializableAttrs['ReleaseAsset']):
     content_type: str
     size: int
     download_count: str
-    created_at: ISODateTime
-    updated_at: Optional[ISODateTime]
+    created_at: HubDateTime
+    updated_at: Optional[HubDateTime]
     uploader: User
 
 
@@ -226,8 +218,8 @@ class Release(SerializableAttrs['Release']):
     author: User
     body: Optional[str]
 
-    created_at: ISODateTime
-    published_at: ISODateTime
+    created_at: HubDateTime
+    published_at: Optional[HubDateTime]
 
     url: str
     assets_url: str
@@ -264,7 +256,7 @@ class StarAction(SerializableEnum):
 @dataclass
 class StarEvent(SerializableAttrs['StarEvent']):
     action: StarAction
-    starred_at: ISODateTime
+    starred_at: HubDateTime
     repository: Repository
     sender: User
 
@@ -313,10 +305,10 @@ class Milestone(SerializableAttrs['Milestone']):
     open_issues: int
     closed_issues: int
     state: IssueState
-    created_at: ISODateTime
-    updated_at: Optional[ISODateTime]
-    due_on: Optional[ISODateTime]
-    closed_at: Optional[ISODateTime]
+    created_at: HubDateTime
+    updated_at: Optional[HubDateTime]
+    due_on: Optional[HubDateTime]
+    closed_at: Optional[HubDateTime]
 
     url: str
     html_url: str
@@ -338,13 +330,12 @@ class Issue(SerializableAttrs['Issue']):
     locked: bool
     milestone: Optional[Milestone]
 
-    assignee: Optional[User]
     assignees: List[User]
 
     comments: int
-    created_at: ISODateTime
-    updated_at: Optional[ISODateTime]
-    closed_at: Optional[ISODateTime]
+    created_at: HubDateTime
+    updated_at: Optional[HubDateTime]
+    closed_at: Optional[HubDateTime]
 
     url: str
     repository_url: str
@@ -390,6 +381,9 @@ class IssuesEvent(SerializableAttrs['IssuesEvent']):
     issue: Issue
     repository: Repository
     sender: User
+    assignee: Optional[User] = None
+    label: Optional[Label] = None
+    milestone: Optional[Milestone] = None
     changes: Optional[JSON] = None
 
 
@@ -401,8 +395,8 @@ class Comment(SerializableAttrs['Comment']):
     html_url: str
     body: str
     user: User
-    created_at: ISODateTime
-    updated_at: Optional[ISODateTime]
+    created_at: HubDateTime
+    updated_at: Optional[HubDateTime]
 
 
 class IssueCommentAction(SerializableEnum):
@@ -443,8 +437,8 @@ class Webhook(SerializableAttrs['Webhook']):
     active: bool
     events: List[str]
     config: WebhookConfig
-    created_at: ISODateTime
-    updated_at: Optional[ISODateTime]
+    created_at: HubDateTime
+    updated_at: Optional[HubDateTime]
     url: str
     test_url: str
     ping_url: str

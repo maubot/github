@@ -70,7 +70,7 @@ class WebhookInfo:
         return secret.hexdigest()
 
 
-class WebhookSecretManager:
+class WebhookManager:
     _table: Table
     _db: Engine
     _secret: bytes
