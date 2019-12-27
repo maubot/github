@@ -23,7 +23,7 @@ from mautrix.types import TextMessageEventContent, Format, MessageType, RoomID
 from mautrix.util.formatter import parse_html
 
 from .webhook_manager import WebhookInfo
-from .template import TemplateManager, TemplateProxy, TemplateUtil
+from .template import TemplateManager, TemplateUtil
 from .api.types import Event, IssueAction, StarAction
 
 if TYPE_CHECKING:
@@ -69,7 +69,7 @@ class WebhookHandler:
     async def _send_message(self, template: str, info: WebhookMessageInfo) -> None:
         tpl = self.messages[template]
         args = attr.asdict(info.event, recurse=False)
-        args["templates"] = TemplateProxy(self.templates._env, args)
+        args["templates"] = self.templates.proxy(args)
         args["util"] = TemplateUtil
         args["IssueAction"] = IssueAction
         args["StarAction"] = StarAction

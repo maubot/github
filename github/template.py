@@ -35,6 +35,9 @@ class TemplateManager:
     def reload(self) -> None:
         self._loader.reload()
 
+    def proxy(self, args: Dict[str, Any]) -> 'TemplateProxy':
+        return TemplateProxy(self._env, args)
+
 
 class TemplateProxy:
     _env: JinjaEnvironment
