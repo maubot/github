@@ -24,7 +24,7 @@ from mautrix.util.formatter import parse_html
 
 from .webhook_manager import WebhookInfo
 from .template import TemplateManager, TemplateUtil
-from .api.types import Event, ACTION_TYPES
+from .api.types import Event, ACTION_TYPES, MetaAction
 
 if TYPE_CHECKING:
     from .bot import GitHubBot
@@ -59,8 +59,11 @@ class WebhookHandler:
         evt_info = WebhookMessageInfo(room_id=webhook_info.room_id, delivery_id=delivery_id,
                                       event=evt)
         if evt_type == "ping":
-            webhook_info = self.bot.webhooks.set_github_id(webhook_info, evt.hook_id)
             self.log.debug(f"Received ping for {webhook_info}: {evt.zen}")
+            webhook_info = self.bot.webhooks.set_github_id(webhook_info, evt.hook_id)
+        elif evt_type == "meta" and evt.action == MetaAction.DELETED:
+            self.log.debug(f"Received delete hook for {webhook_info}")
+            self.bot.webhooks.delete(webhook_info.id)
         try:
             await self._send_message(evt_type, evt_info)
         except TemplateNotFound:

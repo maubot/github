@@ -54,7 +54,10 @@ class ConfigTemplateLoader(BaseLoader):
 
     def get_source(self, environment: Any, name: str) -> Tuple[str, str, Callable[[], bool]]:
         cur_reload_counter = self.reload_counter
-        tpl = recursive_get(self.config[self.field], name)
+        try:
+            tpl = recursive_get(self.config[self.field], name)
+        except KeyError:
+            raise TemplateNotFound(name)
         if not tpl:
             raise TemplateNotFound(name)
         return (self.config["macros"] + tpl, name,

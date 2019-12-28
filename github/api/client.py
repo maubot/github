@@ -28,9 +28,10 @@ OptStrList = Optional[List[str]]
 
 
 class GitHubError(Exception):
-    def __init__(self, message: str, documentation_url: str, **kwargs) -> None:
+    def __init__(self, message: str, documentation_url: str, status: int, **kwargs) -> None:
         super().__init__(message)
         self.documentation_url = documentation_url
+        self.status = status
         self.kwargs = kwargs
 
 
@@ -124,7 +125,7 @@ class GitHubClient:
                                    headers=self.headers)
         data = await resp.json()
         if resp.status != 200:
-            raise GitHubError(**data)
+            raise GitHubError(status=resp.status, **data)
         return Webhook.deserialize(data)
 
     async def create_webhook(self, owner: str, repo: str, url: URL, *, active: bool = True,
@@ -147,7 +148,7 @@ class GitHubClient:
                                     data=json.dumps(payload), headers=self.headers)
         data = await resp.json()
         if resp.status != 201:
-            raise GitHubError(**data)
+            raise GitHubError(status=resp.status, **data)
         return Webhook.deserialize(data)
 
     async def edit_webhook(self, owner: str, repo: str, hook_id: int, *, url: Optional[URL] = None,
@@ -181,7 +182,7 @@ class GitHubClient:
             data=json.dumps(payload), headers=self.headers)
         data = await resp.json()
         if resp.status != 200:
-            raise GitHubError(**data)
+            raise GitHubError(status=resp.status, **data)
         return Webhook.deserialize(data)
 
     async def delete_webhook(self, owner: str, repo: str, hook_id: int) -> None:
@@ -189,4 +190,4 @@ class GitHubClient:
             self.base_url / "repos" / owner / repo / "hooks" / str(hook_id), headers=self.headers)
         if resp.status != 204:
             data = await resp.json()
-            raise GitHubError(**data)
+            raise GitHubError(status=resp.status, **data)

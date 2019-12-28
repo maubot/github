@@ -1,2 +1,2 @@
-from .client import GitHubClient
+from .client import GitHubClient, GitHubError
 from .webhook import GitHubWebhookReceiver

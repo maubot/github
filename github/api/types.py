@@ -372,8 +372,8 @@ class Change(SerializableAttrs['Change']):
 
 @dataclass
 class IssueChanges(SerializableAttrs['IssueChanges']):
-    body: Change
-    title: Change
+    body: Optional[Change] = None
+    title: Optional[Change] = None
 
 
 @dataclass
@@ -389,7 +389,7 @@ class IssuesEvent(SerializableAttrs['IssuesEvent']):
 
 
 @dataclass
-class Comment(SerializableAttrs['Comment']):
+class IssueComment(SerializableAttrs['IssueComment']):
     id: int
     node_id: int
     url: str
@@ -400,7 +400,7 @@ class Comment(SerializableAttrs['Comment']):
     updated_at: Optional[HubDateTime]
 
 
-class IssueCommentAction(SerializableEnum):
+class CommentAction(SerializableEnum):
     CREATED = "created"
     EDITED = "edited"
     DELETED = "deleted"
@@ -408,9 +408,9 @@ class IssueCommentAction(SerializableEnum):
 
 @dataclass
 class IssueCommentEvent(SerializableAttrs['IssueCommentEvent']):
-    action: IssueCommentAction
+    action: CommentAction
     issue: Issue
-    comment: Comment
+    comment: IssueComment
     repository: Repository
     sender: User
 
@@ -440,10 +440,10 @@ class Webhook(SerializableAttrs['Webhook']):
     config: WebhookConfig
     created_at: HubDateTime
     updated_at: Optional[HubDateTime]
-    url: str
-    test_url: str
-    ping_url: str
-    last_response: WebhookResponse
+    url: Optional[str] = None
+    test_url: Optional[str] = None
+    ping_url: Optional[str] = None
+    last_response: Optional[WebhookResponse] = None
 
 
 @dataclass
@@ -464,12 +464,126 @@ class CreateEvent(SerializableAttrs['CreateEvent']):
     sender: User
 
 
-# TODO: Label, CommitComment, PullRequest, PullRequestReview, PullRequestReviewComment
+class MetaAction(SerializableEnum):
+    DELETED = 'deleted'
+
+
+@dataclass
+class MetaEvent(SerializableAttrs['MetaEvent']):
+    action: MetaAction
+    hook: Webhook
+    hook_id: int
+    repository: Repository
+    sender: User
+
+
+@dataclass
+class CommitComment(SerializableAttrs['CommitComment']):
+    id: int
+    node_id: str
+    user: User
+    url: str
+    html_url: str
+
+    body: str
+    author_association: str
+    commit_id: str
+    position: Optional[int]
+    line: Optional[int]
+    path: Optional[str]
+
+    created_at: HubDateTime
+    updated_at: Optional[HubDateTime]
+
+
+@dataclass
+class CommitCommentEvent(SerializableAttrs['CommitCommentEvent']):
+    action: CommentAction
+    comment: IssueComment
+    repository: Repository
+    sender: User
+
+
+@dataclass
+class MilestoneChanges(SerializableAttrs['MilestoneChanges']):
+    title: Optional[Change] = None
+    description: Optional[Change] = None
+    due_on: Optional[Change] = None
+
+
+class MilestoneAction(SerializableEnum):
+    CREATED = "created"
+    OPENED = "opened"
+    EDITED = "edited"
+    CLOSED = "closed"
+    DELETED = "deleted"
+
+
+@dataclass
+class MilestoneEvent(SerializableAttrs['MilestoneEvent']):
+    action: MilestoneAction
+    milestone: Milestone
+    repository: Repository
+    sender: User
+    changes: Optional[IssueChanges] = None
+
+
+class LabelAction(SerializableEnum):
+    CREATED = "created"
+    EDITED = "edited"
+    DELETED = "deleted"
+
+
+@dataclass
+class LabelChanges(SerializableAttrs['LabelChanges']):
+    name: Optional[Change] = None
+    color: Optional[Change] = None
+
+
+@dataclass
+class LabelEvent(SerializableAttrs['LabelEvent']):
+    action: LabelAction
+    label: Label
+    changes: LabelChanges
+    repository: Repository
+    sender: User
+
+
+class WikiPageAction(SerializableEnum):
+    CREATED = "created"
+    EDITED = "edited"
+
+
+@dataclass
+class WikiPageEvent(SerializableAttrs['WikiPageEvent']):
+    action: WikiPageAction
+    page_name: str
+    title: str
+    summary: Optional[str]
+    sha: str
+    html_url: str
+
+
+@dataclass
+class WikiEvent(SerializableAttrs['WikiEvent']):
+    pages: List[WikiPageEvent]
+    repository: Repository
+    sender: User
+
+
+@dataclass
+class PublicEvent(SerializableAttrs['PublicEvent']):
+    repository: Repository
+    sender: User
+
+
+# TODO: PullRequest, PullRequestReview, PullRequestReviewComment
 #       RepositoryEvent, etc
 
 
 Event = Union[IssuesEvent, IssueCommentEvent, PushEvent, ReleaseEvent, StarEvent, WatchEvent,
-              PingEvent]
+              PingEvent, ForkEvent, CreateEvent, MetaEvent, CommitCommentEvent, MilestoneEvent,
+              LabelEvent, WikiEvent, PublicEvent]
 
 EVENT_TYPES = {
     "issues": IssuesEvent,
@@ -481,11 +595,21 @@ EVENT_TYPES = {
     "ping": PingEvent,
     "fork": ForkEvent,
     "create": CreateEvent,
+    "meta": MetaEvent,
+    "commit_comment": CommitCommentEvent,
+    "milestone": MilestoneEvent,
+    "label": LabelEvent,
+    "gollum": WikiEvent,
+    "public": PublicEvent,
 }
 
 ACTION_TYPES = {
     "IssueAction": IssueAction,
     "StarAction": StarAction,
-    "IssueCommentAction": IssueCommentAction,
+    "CommentAction": CommentAction,
     "ReleaseAction": ReleaseAction,
+    "MetaAction": MetaAction,
+    "MilestoneAction": MilestoneAction,
+    "LabelAction": LabelAction,
+    "WikiPageAction": WikiPageAction,
 }

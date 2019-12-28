@@ -13,7 +13,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Dict, Any
+from typing import Dict, List, Any
 
 from jinja2 import Environment as JinjaEnvironment, Template, TemplateNotFound
 
@@ -91,5 +91,13 @@ class TemplateUtil:
     @staticmethod
     def ref_name(ref: str) -> str:
         return ref.split("/", 2)[2]
+
+    @staticmethod
+    def join_human_list(data: List[str], joiner: str = ", ", final_joiner: str = " and ") -> str:
+        if not data:
+            return ""
+        elif len(data) == 1:
+            return data[0]
+        return joiner.join(data[:-1]) + final_joiner + data[-1]
 
     markdown = markdown.render

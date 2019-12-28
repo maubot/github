@@ -19,7 +19,7 @@ import json
 from maubot import MessageEvent
 from maubot.handlers import command
 
-from .api import GitHubClient
+from .api import GitHubClient, GitHubError
 
 if TYPE_CHECKING:
     from .bot import GitHubBot
@@ -133,10 +133,9 @@ class Commands:
             await evt.reply("This room already has a webhook for that repo")
             # TODO webhook may be deleted on github side
             return
-        webhook_info = self.bot.webhooks.create(repo_name, evt.sender, evt.room_id)
-        await client.create_webhook(*repo, self.bot.webapp_url / "webhook" / str(webhook_info.id),
-                                    secret=webhook_info.secret, content_type="json",
-                                    events=["*"])
+        webhook = self.bot.webhooks.create(repo_name, evt.sender, evt.room_id)
+        await client.create_webhook(*repo, url=self.bot.webapp_url / "webhook" / str(webhook.id),
+                                    secret=webhook.secret, content_type="json", events=["*"])
         await evt.reply(f"Successfully created webhook for {repo_name}")
 
     @webhook.subcommand("remove", aliases=["delete", "rm", "del"])
@@ -152,9 +151,18 @@ class Commands:
         self.bot.webhooks.delete(webhook_info.id)
         if webhook_info.github_id:
             if client:
-                await client.delete_webhook(*repo, hook_id=webhook_info.github_id)
-                await evt.reply("Webhook deleted from GitHub")
-            else:
-                await evt.reply("Webhook deleted locally, but it may still exist on GitHub")
+                try:
+                    await client.delete_webhook(*repo, hook_id=webhook_info.github_id)
+                except GitHubError as e:
+                    if e.status == 404:
+                        await evt.reply("Webhook deleted successfully")
+                        return
+                    else:
+                        self.bot.log.warning(f"Failed to remove {webhook_info} from GitHub",
+                                             exc_info=True)
+                else:
+                    await evt.reply("Webhook deleted successfully")
+                    return
+            await evt.reply("Webhook deleted locally, but it may still exist on GitHub")
         else:
-            await evt.reply("Webhook deleted")
+            await evt.reply("Webhook deleted locally")

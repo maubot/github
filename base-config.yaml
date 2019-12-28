@@ -59,7 +59,7 @@ messages:
   # Star events happen when someone stars or unstars the repo.
   # The watch event also happens when someone stars the repo, not sure if that would be better.
   star: >
-    {{ templates.repo_prefix }} Repo {% if action == StarAction.DELETED %}un{% endif %}starred by {{ user_link(sender) }}
+    {{ templates.repo_sender_prefix }} {% if action == StarAction.DELETED %}un{% endif %}starred the repo
 
   fork: >
     {{ templates.repo_prefix }} Repo forked into {{ repo_link(forkee) }}
@@ -89,7 +89,7 @@ messages:
 
   issue_comment: >
     {{ templates.repo_sender_prefix }}
-    {% if action == IssueCommentAction.CREATED %}
+    {% if action == CommentAction.CREATED %}
       <a href="{{ comment.html_url }}">commented</a> on {{ templates.issue_link }}:
       <blockquote>{{ util.markdown(comment.body) }}</blockquote>
     {% else %}
@@ -128,3 +128,44 @@ messages:
 
     {{ templates.repo_sender_prefix }} published
     <a href="{{ release.html_url }}">{{ release.tag_name }}: {{ release.name }}</a>
+
+  # Meta events are sent when the webhook itself is deleted.
+  meta: >
+    {% if action != MetaAction.DELETED %} {% do abort() %} {% endif %}
+
+    {{ templates.repo_prefix }} Webhook deleted by {{ user_link(sender) }}
+
+  # Repo publication event.
+  public: >
+    {{ templates.repo_sender_prefix }} made the repo public
+
+  # Wiki page events.
+  gollum: >
+    {{ templates.repo_sender_prefix }}
+    {% if pages|length == 0 %}
+      {% do abort() %}
+    {% endif %}
+
+    {% macro page_link(page) %}
+      <a href="{{ page.html_url }}">{{ page.title }}</a>
+    {% endmacro %}
+
+    {% set created, edited = [], [] %}
+    {% for page in pages %}
+      {% if page.action == WikiPageAction.CREATED %}
+        {% do created.append(page_link(page)) %}
+      {% elif page.action == WikiPageAction.EDITED %}
+        {% do edited.append(page_link(page)) %}
+      {% endif %}
+    {% endfor %}
+
+    {% if created %}
+      created {{ util.join_human_list(created) }}
+    {% endif %}
+    {% if edited %}
+      {% if created %}
+        and
+      {% endif %}
+      edited {{ util.join_human_list(edited) }}
+    {% endif %}
+    on the wiki
