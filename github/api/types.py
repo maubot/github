@@ -577,13 +577,132 @@ class PublicEvent(SerializableAttrs['PublicEvent']):
     sender: User
 
 
-# TODO: PullRequest, PullRequestReview, PullRequestReviewComment
-#       RepositoryEvent, etc
+class PullRequestState(SerializableEnum):
+    OPEN = "open"
+    CLOSED = "closed"
+
+
+@dataclass
+class PullRequestRef(SerializableAttrs['PullRequestRef']):
+    label: str
+    ref: str
+    sha: str
+    user: User
+    repo: Repository
+
+
+class TeamPrivacy(SerializableEnum):
+    SECRET = "secret"
+    CLOSED = "closed"
+
+
+class TeamPermission(SerializableEnum):
+    PULL = "pull"
+    PUSH = "push"
+    ADMIN = "admin"
+
+
+@dataclass
+class Team(SerializableAttrs['Team']):
+    id: int
+    node_id: str
+    name: str
+    slug: str
+    description: str
+    privacy: TeamPrivacy
+    permission: TeamPermission
+
+    url: str
+    html_url: str
+    members_url: str
+    repositories_url: str
+
+
+@dataclass
+class PullRequest(SerializableAttrs['PullRequest']):
+    id: int
+    node_id: str
+    number: int
+    state: PullRequestState
+    title: str
+    body: str
+    user: User
+
+    labels: List[Label]
+    milestone: Optional[Milestone]
+    assignees: List[User]
+    requested_reviewers: List[User]
+    requested_teams: List[Team]
+
+    author_association: str
+    draft: bool
+    merged: bool
+    mergeable: bool
+    rebaseable: bool
+    mergeable_state: str
+
+    merged_by: Optional[User]
+    merge_commit_sha: str
+
+    comments: int
+    review_comments: int
+    maintainer_can_modify: bool
+    commits: int
+    additions: int
+    deletions: int
+    changed_files: int
+
+    head: PullRequestRef
+    base: PullRequestRef
+
+    created_at: HubDateTime
+    updated_at: Optional[HubDateTime]
+    closed_at: Optional[HubDateTime]
+    merged_at: Optional[HubDateTime]
+
+    locked: bool
+    active_lock_reason: Optional[str]
+
+    html_url: str
+    diff_url: str
+    patch_url: str
+    issue_url: str
+    commits_url: str
+    review_comments_url: str
+    review_comment_url: str
+    comments_url: str
+    statuses_url: str
+
+
+class PullRequestAction(SerializableEnum):
+    ASSIGNED = "assigned"
+    UNASSIGNED = "unassigned"
+    LABELED = "labeled"
+    UNLABELED = "unlabeled"
+    OPENED = "opened"
+    EDITED = "edited"
+    CLOSED = "closed"
+    REOPENED = "reopened"
+    SYNCHRONIZE = "synchronize"
+    READY_FOR_REVIEW = "ready_for_review"
+    LOCKED = "locked"
+    UNLOCKED = "unlocked"
+
+
+@dataclass
+class PullRequestEvent(SerializableAttrs['PullRequestEvent']):
+    action: PullRequestAction
+    pull_request: PullRequest
+    changes: IssueChanges
+    number: int
+    repository: Repository
+    sender: User
+    requested_reviewer: Optional[User] = None
 
 
 Event = Union[IssuesEvent, IssueCommentEvent, PushEvent, ReleaseEvent, StarEvent, WatchEvent,
               PingEvent, ForkEvent, CreateEvent, MetaEvent, CommitCommentEvent, MilestoneEvent,
-              LabelEvent, WikiEvent, PublicEvent]
+              LabelEvent, WikiEvent, PublicEvent, PullRequestEvent]
 
 EVENT_TYPES = {
     "issues": IssuesEvent,
@@ -601,6 +720,7 @@ EVENT_TYPES = {
     "label": LabelEvent,
     "gollum": WikiEvent,
     "public": PublicEvent,
+    "pull_request": PullRequestEvent,
 }
 
 ACTION_TYPES = {
@@ -612,4 +732,5 @@ ACTION_TYPES = {
     "MilestoneAction": MilestoneAction,
     "LabelAction": LabelAction,
     "WikiPageAction": WikiPageAction,
+    "PullRequestAction": PullRequestAction,
 }
