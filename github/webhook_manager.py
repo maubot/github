@@ -114,8 +114,8 @@ class WebhookManager:
             pass
 
     def _execute_select(self, *where_clause) -> Optional[WebhookInfo]:
-        rows = self._db.execute(self._table.select().where(*where_clause if len(where_clause) < 2
-        else and_(*where_clause)))
+        rows = self._db.execute(self._table.select().where(where_clause[0] if len(where_clause) == 1
+                                                           else and_(*where_clause)))
         try:
             info = WebhookInfo(*next(rows), _secret_key=self._secret)
             self._webhooks[info.id] = info

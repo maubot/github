@@ -52,13 +52,13 @@ class ConfigTemplateLoader(BaseLoader):
     def reload(self) -> None:
         self.reload_counter += 1
 
-    def get_source(self, environment: Any, template: str) -> Tuple[str, str, Callable[[], bool]]:
+    def get_source(self, environment: Any, name: str) -> Tuple[str, str, Callable[[], bool]]:
         cur_reload_counter = self.reload_counter
-        try:
-            return (self.config["macros"] + recursive_get(self.config[self.field], template),
-                    template, lambda: self.reload_counter == cur_reload_counter)
-        except KeyError:
-            raise TemplateNotFound(template)
+        tpl = recursive_get(self.config[self.field], name)
+        if not tpl:
+            raise TemplateNotFound(name)
+        return (self.config["macros"] + tpl, name,
+                lambda: self.reload_counter == cur_reload_counter)
 
     def list_templates(self) -> Iterable[str]:
         return sorted(self.config[self.field].keys())
