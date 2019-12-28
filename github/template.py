@@ -29,7 +29,8 @@ class TemplateManager:
 
     def __init__(self, config: Config, key: str) -> None:
         self._loader = ConfigTemplateLoader(config, key)
-        self._env = JinjaEnvironment(loader=self._loader, extensions=["jinja2.ext.do"])
+        self._env = JinjaEnvironment(loader=self._loader, extensions=["jinja2.ext.do"],
+                                     lstrip_blocks=True, trim_blocks=True)
 
     def __getitem__(self, item: str) -> Template:
         return self._env.get_template(item)

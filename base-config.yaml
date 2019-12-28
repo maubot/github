@@ -141,7 +141,6 @@ messages:
 
   # Wiki page events.
   gollum: >
-    {{ templates.repo_sender_prefix }}
     {% if pages|length == 0 %}
       {% do abort() %}
     {% endif %}
@@ -159,6 +158,7 @@ messages:
       {% endif %}
     {% endfor %}
 
+    {{ templates.repo_sender_prefix }}
     {% if created %}
       created {{ util.join_human_list(created) }}
     {% endif %}

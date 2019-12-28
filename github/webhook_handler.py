@@ -15,6 +15,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from typing import NamedTuple, TYPE_CHECKING
 import logging
+import re
 
 from jinja2 import TemplateNotFound
 import attr
@@ -34,6 +35,10 @@ class WebhookMessageInfo(NamedTuple):
     room_id: RoomID
     delivery_id: str
     event: Event
+
+
+spaces = re.compile(" +")
+space = " "
 
 
 class WebhookHandler:
@@ -88,6 +93,7 @@ class WebhookHandler:
                                           formatted_body=tpl.render(**args))
         if not content.formatted_body or aborted:
             return
+        content.formatted_body = spaces.sub(space, content.formatted_body.strip())
         content.body = parse_html(content.formatted_body)
         content["xyz.maubot.github.delivery_id"] = info.delivery_id
         await self.bot.client.send_message(info.room_id, content)
