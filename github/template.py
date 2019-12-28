@@ -17,6 +17,8 @@ from typing import Dict, Any
 
 from jinja2 import Environment as JinjaEnvironment, Template, TemplateNotFound
 
+from mautrix.util import markdown
+
 from .config import Config, ConfigTemplateLoader
 from .util import contrast, hex_to_rgb
 
@@ -27,7 +29,7 @@ class TemplateManager:
 
     def __init__(self, config: Config, key: str) -> None:
         self._loader = ConfigTemplateLoader(config, key)
-        self._env = JinjaEnvironment(loader=self._loader)
+        self._env = JinjaEnvironment(loader=self._loader, extensions=["jinja2.ext.do"])
 
     def __getitem__(self, item: str) -> Template:
         return self._env.get_template(item)
@@ -89,3 +91,5 @@ class TemplateUtil:
     @staticmethod
     def ref_name(ref: str) -> str:
         return ref.split("/", 2)[2]
+
+    markdown = markdown.render

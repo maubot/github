@@ -228,7 +228,7 @@ class Release(SerializableAttrs['Release']):
     zipball_url: str
     html_url: str
 
-    asset: List[ReleaseAsset]
+    assets: List[ReleaseAsset]
 
 
 class ReleaseAction(SerializableEnum):
@@ -276,6 +276,7 @@ class WatchEvent(SerializableAttrs['StarEvent']):
 class ForkEvent(SerializableAttrs['ForkEvent']):
     forkee: Repository
     repository: Repository
+    sender: User
 
 
 @dataclass
@@ -452,6 +453,17 @@ class PingEvent(SerializableAttrs['PingEvent']):
     hook: Webhook
 
 
+@dataclass
+class CreateEvent(SerializableAttrs['CreateEvent']):
+    ref_type: str
+    ref: str
+    master_branch: str
+    description: Optional[str]
+    pusher_type: str
+    repository: Repository
+    sender: User
+
+
 # TODO: Label, CommitComment, PullRequest, PullRequestReview, PullRequestReviewComment
 #       RepositoryEvent, etc
 
@@ -467,4 +479,13 @@ EVENT_TYPES = {
     "star": StarEvent,
     "watch": WatchEvent,
     "ping": PingEvent,
+    "fork": ForkEvent,
+    "create": CreateEvent,
+}
+
+ACTION_TYPES = {
+    "IssueAction": IssueAction,
+    "StarAction": StarAction,
+    "IssueCommentAction": IssueCommentAction,
+    "ReleaseAction": ReleaseAction,
 }

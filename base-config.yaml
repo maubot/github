@@ -13,9 +13,12 @@ msgtype: m.notice
 # like message templates do. You can insert them into messages and other
 # templates as if they were arguments.
 templates:
-  repo_prefix: '[<a href="{{ repository.html_url }}">{{ repository.full_name|e }}</a>]'
-  repo_sender_prefix: '{{ templates.repo_prefix }} {{ user_link(sender) }}'
-  issue_link: '<a href="{{ issue.html_url }}">issue #{{ issue.number }}</a>: {{ issue.title|e }}'
+  repo_prefix: >
+    <strong>[{{ repo_link(repository) }}]</strong>
+  repo_sender_prefix: >
+    {{ templates.repo_prefix }} {{ user_link(sender) }}
+  issue_link: >
+    <a href="{{ issue.html_url }}">issue #{{ issue.number }}</a>: {{ issue.title|e }}
 
 # Macros is a single Jinja2 template that is prepended to all other templates.
 # It is useful for having macro functions that are usable anywhere.
@@ -37,21 +40,37 @@ macros: >
     milestone <a href="{{ milestone.html_url }}">{{ milestone.title|e }}</a>
   {%- endmacro -%}
 
+  {%- macro repo_link(repo) -%}
+    <a href="{{ repo.html_url }}">{{ repo.full_name|e }}</a>
+  {%- endmacro -%}
+
 
 # Messages are the actual message templates. Each template here corresponds to
 # a specific event received through a GitHub webhook.
 messages:
+  # Ping events are sent when the webhook is created and when it's manually pinged.
+  # Ping events are always logged, but not sent to the Matrix room by default.
   ping: null
 
+  # This event could be used for branch/tag creations, but this example config
+  # just uses the push event for those too.
+  create: null
+
+  # Star events happen when someone stars or unstars the repo.
+  # The watch event also happens when someone stars the repo, not sure if that would be better.
   star: >
     {{ templates.repo_prefix }} Repo {% if action == StarAction.DELETED %}un{% endif %}starred by {{ user_link(sender) }}
 
+  fork: >
+    {{ templates.repo_prefix }} Repo forked into {{ repo_link(forkee) }}
+
+  # All events that change an issue itself (i.e. everything except comments)
   issues: >
     {{ templates.repo_sender_prefix }}
     {% if action == IssueAction.OPENED %}
-      opened {{ templates.issue_link }}
+      opened {{ templates.issue_link }}<br/>
       {% if issue.body %}
-        <blockquote>{{ issue.body|e }}</blockquote>
+        <blockquote>{{ util.markdown(issue.body) }}</blockquote>
       {% endif %}
       {% for label in issue.labels %}
         {{ fancy_label(label) }}
@@ -66,6 +85,21 @@ messages:
     {% endif %}
     {% if action not in (IssueAction.OPENED, IssueAction.MILESTONED, IssueAction.DEMILESTONED) %}
       {{ templates.issue_link }}
+    {% endif %}
+
+  issue_comment: >
+    {{ templates.repo_sender_prefix }}
+    {% if action == IssueCommentAction.CREATED %}
+      <a href="{{ comment.html_url }}">commented</a> on {{ templates.issue_link }}:
+      <blockquote>{{ util.markdown(comment.body) }}</blockquote>
+    {% else %}
+      {{ action }}
+      {% if comment.user.id == sender.id %}
+        their
+      {% else %}
+        {{ user_link(comment.user) }}'s
+      {% endif %}
+      <a href="{{ comment.html_url }}">comment</a> on {{ templates.issue_link }}
     {% endif %}
 
   push: >
@@ -88,3 +122,9 @@ messages:
       </li>
     {% endfor %}
     </ul>
+
+  release: >
+    {% if action != ReleaseAction.PUBLISHED %} {% do abort() %} {% endif %}
+
+    {{ templates.repo_sender_prefix }} published
+    <a href="{{ release.html_url }}">{{ release.tag_name }}: {{ release.name }}</a>

@@ -24,7 +24,7 @@ from mautrix.util.formatter import parse_html
 
 from .webhook_manager import WebhookInfo
 from .template import TemplateManager, TemplateUtil
-from .api.types import Event, IssueAction, StarAction
+from .api.types import Event, ACTION_TYPES
 
 if TYPE_CHECKING:
     from .bot import GitHubBot
@@ -68,14 +68,22 @@ class WebhookHandler:
 
     async def _send_message(self, template: str, info: WebhookMessageInfo) -> None:
         tpl = self.messages[template]
-        args = attr.asdict(info.event, recurse=False)
+        aborted = False
+
+        def abort() -> None:
+            nonlocal aborted
+            aborted = True
+
+        args = {
+            **attr.asdict(info.event, recurse=False),
+            **ACTION_TYPES,
+            "util": TemplateUtil,
+            "abort": abort,
+        }
         args["templates"] = self.templates.proxy(args)
-        args["util"] = TemplateUtil
-        args["IssueAction"] = IssueAction
-        args["StarAction"] = StarAction
         content = TextMessageEventContent(msgtype=self.msgtype, format=Format.HTML,
                                           formatted_body=tpl.render(**args))
-        if not content.formatted_body:
+        if not content.formatted_body or aborted:
             return
         content.body = parse_html(content.formatted_body)
         content["xyz.maubot.github.delivery_id"] = info.delivery_id
