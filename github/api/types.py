@@ -317,6 +317,14 @@ class Milestone(SerializableAttrs['Milestone']):
 
 
 @dataclass
+class IssuePullURLs(SerializableAttrs['IssuePullURLs']):
+    diff_url: str
+    html_url: str
+    patch_url: str
+    url: str
+
+
+@dataclass
 class Issue(SerializableAttrs['Issue']):
     id: int
     node_id: str
@@ -344,6 +352,8 @@ class Issue(SerializableAttrs['Issue']):
     comments_url: str
     events_url: str
     html_url: str
+
+    pull_request: Optional[IssuePullURLs] = None
 
 
 class IssueAction(SerializableEnum):
@@ -619,11 +629,12 @@ class Team(SerializableAttrs['Team']):
 
 
 @dataclass
-class PullRequest(SerializableAttrs['PullRequest']):
+class PartialPullRequest(SerializableAttrs['PartialPullRequest']):
     id: int
     node_id: str
     number: int
     state: PullRequestState
+    locked: bool
     title: str
     body: str
     user: User
@@ -635,22 +646,7 @@ class PullRequest(SerializableAttrs['PullRequest']):
     requested_teams: List[Team]
 
     author_association: str
-    draft: bool
-    merged: bool
-    mergeable: bool
-    rebaseable: bool
-    mergeable_state: str
-
-    merged_by: Optional[User]
     merge_commit_sha: str
-
-    comments: int
-    review_comments: int
-    maintainer_can_modify: bool
-    commits: int
-    additions: int
-    deletions: int
-    changed_files: int
 
     head: PullRequestRef
     base: PullRequestRef
@@ -659,9 +655,6 @@ class PullRequest(SerializableAttrs['PullRequest']):
     updated_at: Optional[HubDateTime]
     closed_at: Optional[HubDateTime]
     merged_at: Optional[HubDateTime]
-
-    locked: bool
-    active_lock_reason: Optional[str]
 
     html_url: str
     diff_url: str
@@ -674,9 +667,30 @@ class PullRequest(SerializableAttrs['PullRequest']):
     statuses_url: str
 
 
+@dataclass
+class PullRequest(PartialPullRequest, SerializableAttrs['PullRequest']):
+    merged_by: Optional[User]
+
+    draft: bool
+    merged: bool
+    mergeable: bool
+    rebaseable: bool
+    mergeable_state: str
+
+    comments: int
+    review_comments: int
+    maintainer_can_modify: bool
+    commits: int
+    additions: int
+    deletions: int
+    changed_files: int
+
+
 class PullRequestAction(SerializableEnum):
     ASSIGNED = "assigned"
     UNASSIGNED = "unassigned"
+    REVIEW_REQUESTED = "review_requested"
+    REVIEW_REQUEST_REMOVED = "review_request_removed"
     LABELED = "labeled"
     UNLABELED = "unlabeled"
     OPENED = "opened"
@@ -693,16 +707,99 @@ class PullRequestAction(SerializableEnum):
 class PullRequestEvent(SerializableAttrs['PullRequestEvent']):
     action: PullRequestAction
     pull_request: PullRequest
-    changes: IssueChanges
     number: int
     repository: Repository
     sender: User
+    changes: Optional[IssueChanges] = None
+    label: Optional[Label] = None
+    assignee: Optional[User] = None
+    milestone: Optional[Milestone] = None
     requested_reviewer: Optional[User] = None
+
+
+class PullRequestReviewAction(SerializableEnum):
+    SUBMITTED = "submitted"
+    EDITED = "edited"
+    DISMISSED = "dismissed"
+
+
+class ReviewState(SerializableEnum):
+    COMMENTED = "commented"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+@dataclass
+class Review(SerializableAttrs['Review']):
+    id: int
+    node_id: str
+    user: User
+    commit_id: str
+    submitted_at: HubDateTime
+    state: ReviewState
+    html_url: str
+    pull_request_url: str
+    author_association: str
+    body: Optional[str] = None
+
+
+@dataclass
+class ReviewChanges(SerializableAttrs['ReviewChanges']):
+    body: Optional[Change] = None
+
+
+@dataclass
+class PullRequestReviewEvent(SerializableAttrs['PullRequestReviewEvent']):
+    action: PullRequestReviewAction
+    pull_request: PartialPullRequest
+    review: Review
+    repository: Repository
+    sender: User
+    changes: Optional[ReviewChanges] = None
+
+
+class PullRequestReviewCommentAction(SerializableEnum):
+    CREATED = "created"
+    EDITED = "edited"
+    DELETED = "deleted"
+
+
+@dataclass
+class ReviewComment(SerializableAttrs['ReviewComment']):
+    id: int
+    node_id: str
+    pull_request_review_id: int
+    user: User
+    url: str
+    html_url: str
+
+    body: str
+    author_association: str
+    commit_id: str
+    original_commit_id: str
+    diff_hunk: str
+    position: int
+    original_position: int
+    path: str
+
+    created_at: HubDateTime
+    updated_at: Optional[HubDateTime]
+
+
+@dataclass
+class PullRequestReviewCommentEvent(SerializableAttrs['PullRequestReviewCommentEvent']):
+    action: PullRequestReviewCommentAction
+    pull_request: PartialPullRequest
+    comment: ReviewComment
+    repository: Repository
+    sender: User
+    changes: Optional[ReviewChanges] = None
 
 
 Event = Union[IssuesEvent, IssueCommentEvent, PushEvent, ReleaseEvent, StarEvent, WatchEvent,
               PingEvent, ForkEvent, CreateEvent, MetaEvent, CommitCommentEvent, MilestoneEvent,
-              LabelEvent, WikiEvent, PublicEvent, PullRequestEvent]
+              LabelEvent, WikiEvent, PublicEvent, PullRequestEvent, PullRequestReviewEvent,
+              PullRequestReviewCommentEvent]
 
 EVENT_TYPES = {
     "issues": IssuesEvent,
@@ -721,6 +818,8 @@ EVENT_TYPES = {
     "gollum": WikiEvent,
     "public": PublicEvent,
     "pull_request": PullRequestEvent,
+    "pull_request_review": PullRequestReviewEvent,
+    "pull_request_review_comment": PullRequestReviewCommentEvent,
 }
 
 ACTION_TYPES = {
@@ -733,4 +832,9 @@ ACTION_TYPES = {
     "LabelAction": LabelAction,
     "WikiPageAction": WikiPageAction,
     "PullRequestAction": PullRequestAction,
+    "PRAction": PullRequestAction,
+    "PullRequestReviewAction": PullRequestReviewAction,
+    "ReviewAction": PullRequestReviewAction,
+
+    "ReviewState": ReviewState,
 }

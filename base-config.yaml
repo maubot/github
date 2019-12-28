@@ -18,7 +18,12 @@ templates:
   repo_sender_prefix: >
     {{ templates.repo_prefix }} {{ user_link(sender) }}
   issue_link: >
-    <a href="{{ issue.html_url }}">issue #{{ issue.number }}</a>: {{ issue.title|e }}
+    <a href="{{ issue.html_url }}">
+      {{"pull request" if issue.pull_request else "issue"}}
+      #{{ issue.number -}}
+    </a>: {{ issue.title|e }}
+  pr_link: >
+    <a href="{{ pull_request.html_url }}">pull request #{{ pull_request.number }}</a>: {{ pull_request.title|e }}
 
 # Macros is a single Jinja2 template that is prepended to all other templates.
 # It is useful for having macro functions that are usable anywhere.
@@ -70,7 +75,7 @@ messages:
     {% if action == IssueAction.OPENED %}
       opened {{ templates.issue_link }}<br/>
       {% if issue.body %}
-        <blockquote>{{ util.markdown(issue.body) }}</blockquote>
+        <blockquote>{{ issue.body|markdown }}</blockquote>
       {% endif %}
       {% for label in issue.labels %}
         {{ fancy_label(label) }}
@@ -87,11 +92,56 @@ messages:
       {{ templates.issue_link }}
     {% endif %}
 
+  pull_request: >
+    {{ templates.repo_sender_prefix }}
+    {% if action == PRAction.OPENED %}
+      {% if pull_request.draft %}drafted
+      {% else %}opened{% endif %}
+      {{ templates.pr_link }}
+      {% if pull_request.body %}
+        <blockquote>{{ pull_request.body|markdown }}</blockquote>
+      {% endif %}
+      {% for label in pull_request.labels %}
+        {{ fancy_label(label) }}
+      {% endfor %}
+    {% elif action == PRAction.SYNCHRONIZE %}  {% do abort() %}
+    {% elif action == PRAction.LABELED %}      added {{ fancy_label(label) }} to
+    {% elif action == PRAction.UNLABELED %}    removed {{ fancy_label(label) }} from
+    {% elif action == PRAction.MILESTONED %}   added {{ templates.pr_link }} to {{ milestone_link(milestone) }}
+    {% elif action == PRAction.DEMILESTONED %} removed {{ templates.pr_link }} from {{ milestone_link(milestone) }}
+    {% elif action == PRAction.ASSIGNED %}     assigned {{ user_link(assignee) }} to
+    {% elif action == PRAction.UNASSIGNED %}   unassigned {{ user_link(assignee) }} from
+    {% elif action == PRAction.REVIEW_REQUESTED %}       requested a review from {{ user_link(requested_reviewer) }} for
+    {% elif action == PRAction.REVIEW_REQUEST_REMOVED %} removed the review request for {{ user_link(requested_reviewer) }} from
+    {% elif action == PRAction.READY_FOR_REVIEW %}       marked {{ templates.pr_link }} as ready for review
+    {% else %}                                           {{ action }}
+    {% endif %}
+    {% if action not in (PRAction.OPENED, PRAction.MILESTONED, PRAction.DEMILESTONED, PRAction.READY_FOR_REVIEW) %}
+      {{ templates.pr_link }}
+    {% endif %}
+
+  pull_request_review: >
+    {{ templates.repo_sender_prefix }}
+    {% if action == ReviewAction.SUBMITTED %}
+      <a href="{{ review.html_url }}">{{ review.state }}</a>
+      {% if review.state == ReviewState.COMMENTED %} on {% endif %}
+      {{ templates.pr_link }}
+      {%- if review.body %}
+        : <blockquote>{{ review.body|markdown }}</blockquote>
+      {% endif %}
+    {% else %}
+      {% do abort() %}
+    {% endif %}
+
+  # Individual comments in a pull request review.
+  # These can get spammy, so they're disabled by default.
+  pull_request_review_comment: "{% do abort() %}"
+
   issue_comment: >
     {{ templates.repo_sender_prefix }}
     {% if action == CommentAction.CREATED %}
       <a href="{{ comment.html_url }}">commented</a> on {{ templates.issue_link }}:
-      <blockquote>{{ util.markdown(comment.body) }}</blockquote>
+      <blockquote>{{ comment.body|markdown }}</blockquote>
     {% else %}
       {{ action }}
       {% if comment.user.id == sender.id %}

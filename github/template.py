@@ -29,8 +29,9 @@ class TemplateManager:
 
     def __init__(self, config: Config, key: str) -> None:
         self._loader = ConfigTemplateLoader(config, key)
-        self._env = JinjaEnvironment(loader=self._loader, extensions=["jinja2.ext.do"],
-                                     lstrip_blocks=True, trim_blocks=True)
+        self._env = JinjaEnvironment(loader=self._loader, lstrip_blocks=True, trim_blocks=True,
+                                     extensions=["jinja2.ext.do"])
+        self._env.filters["markdown"] = markdown.render
 
     def __getitem__(self, item: str) -> Template:
         return self._env.get_template(item)
@@ -100,5 +101,3 @@ class TemplateUtil:
         elif len(data) == 1:
             return data[0]
         return joiner.join(data[:-1]) + final_joiner + data[-1]
-
-    markdown = markdown.render
