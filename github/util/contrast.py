@@ -1,5 +1,6 @@
-# From https://github.com/gsnedders/wcag-contrast-ratio
+# Based on https://github.com/gsnedders/wcag-contrast-ratio
 # Copyright (c) 2015 Geoffrey Sneddon
+# Copyright (c) 2019 Tulir Asokan
 # MIT license
 from typing import Tuple
 
