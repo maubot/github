@@ -32,10 +32,6 @@ if TYPE_CHECKING:
     from ..webhook_handler import WebhookHandler
 
 
-import traceback
-from pprint import pprint
-
-
 class GitHubWebhookReceiver:
     handler: 'WebhookHandler'
     secrets: 'WebhookManager'
@@ -68,16 +64,13 @@ class GitHubWebhookReceiver:
             return web.Response(status=400, text="Malformed JSON")
         if not data:
             return web.Response(status=400, text="Malformed JSON")
-        pprint(data)
         try:
             type_class = EVENT_TYPES[event_type]
         except KeyError:
-            print("Unsupported event type", event_type, data)
             return web.Response(status=500, text="Unsupported event type")
         try:
             event = type_class.deserialize(data)
         except SerializerError:
-            traceback.print_exc()
             return web.Response(status=500, text="Failed to parse event content")
         resp = await self.handler(event_type, event,
                                   delivery_id=delivery_id, webhook_info=webhook_info)
