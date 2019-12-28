@@ -1,4 +1,5 @@
 # github
 A GitHub client and webhook receiver for maubot.
 
-Not yet usable in any way.
+Somewhat usable for receiving webhooks.
+If you really want to use it already, figure out the commands yourself.
