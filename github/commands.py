@@ -90,10 +90,6 @@ class Commands:
     @command.argument("query", required=True, pass_raw=True)
     @authenticated
     async def raw_query(self, evt: MessageEvent, query: str, client: GitHubClient) -> None:
-        client = self.bot.clients.get(evt.sender)
-        if not client or not client.token:
-            await evt.reply("You're not logged in. Log in with `!github login` first.")
-            return
         variables = {}
         if "---" in query:
             query, variables = query.split("---")
