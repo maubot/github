@@ -214,7 +214,7 @@ class WebhookHandler:
 
         args = {
             **attr.asdict(evt, recurse=False),
-            **EVENT_ARGS[evt_type],
+            **EVENT_ARGS.get(evt_type, {}),
             **OTHER_ENUMS,
             "util": TemplateUtil,
             "abort": abort,
