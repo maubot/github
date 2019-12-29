@@ -399,9 +399,6 @@ class IssuesEvent(SerializableAttrs['IssuesEvent']):
     milestone: Optional[Milestone] = None
     changes: Optional[JSON] = None
 
-    x_added_labels: Optional[List[Label]] = None
-    x_removed_labels: Optional[List[Label]] = None
-
 
 @dataclass
 class IssueComment(SerializableAttrs['IssueComment']):
@@ -722,9 +719,6 @@ class PullRequestEvent(SerializableAttrs['PullRequestEvent']):
     assignee: Optional[User] = None
     milestone: Optional[Milestone] = None
     requested_reviewer: Optional[User] = None
-
-    x_added_labels: Optional[List[Label]] = None
-    x_removed_labels: Optional[List[Label]] = None
 
 
 class PullRequestReviewAction(SerializableEnum):

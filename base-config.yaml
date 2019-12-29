@@ -17,6 +17,7 @@ message_options:
   msgtype: m.notice
   # Number of seconds to wait for more webhooks before sending a message.
   # This is used for combining label adding and other such things into one message.
+  # If set to -1, aggregations will be disabled
   aggregation_timeout: 1
 
 # Templates are Jinja2 templates that get all the event fields as arguments,
@@ -27,6 +28,17 @@ templates:
   repo_sender_prefix: "{{ templates.repo_prefix }} {{ user_link(sender) }}"
   issue_link: "{{ issueish_link(issue) }}"
   pr_link: "{{ issueish_link(pull_request) }}"
+  label_aggregation: >
+    {% if aggregation.added_labels %}
+      added {{ util.join_human_list(aggregation.added_labels, mutate=fancy_label) }}
+      {% if not aggregation.removed_labels %}to{% endif %}
+    {% endif %}
+    {% if aggregation.removed_labels %}
+      {% if aggregation.added_labels %}
+        and
+      {% endif %}
+      removed {{ util.join_human_list(aggregation.removed_labels, mutate=fancy_label) }} from
+    {% endif %}
 
 # Macros is a single Jinja2 template that is prepended to all other templates.
 # It is useful for having macro functions that are usable anywhere.
@@ -90,24 +102,14 @@ messages:
       {% for label in issue.labels %}
         {{ fancy_label(label) }}
       {% endfor %}
-    {% elif action == LABELED %}      {% do abort() %}
-    {% elif action == UNLABELED %}    {% do abort() %}
-    {% elif action == X_LABEL_AGGREGATE %}
-      {% if x_added_labels %}
-        added {{ util.join_human_list(x_added_labels, mutate=fancy_label) }}
-        {% if not x_removed_labels %}to{% endif %}
-      {% endif %}
-      {% if x_removed_labels %}
-        {% if x_added_labels %}
-          and
-        {% endif %}
-        removed {{ util.join_human_list(x_removed_labels, mutate=fancy_label) }} from
-      {% endif %}
-    {% elif action == MILESTONED %}   added {{ templates.issue_link }} to {{ milestone_link(milestone) }}
-    {% elif action == DEMILESTONED %} removed {{ templates.issue_link }} from {{ milestone_link(milestone) }}
-    {% elif action == ASSIGNED %}     assigned {{ user_link(assignee) }} to
-    {% elif action == UNASSIGNED %}   unassigned {{ user_link(assignee) }} from
-    {% else %}                        {{ action }}
+    {% elif action == LABELED %}           {% do abort() %}
+    {% elif action == UNLABELED %}         {% do abort() %}
+    {% elif action == X_LABEL_AGGREGATE %} {{ templates.label_aggregation }}
+    {% elif action == MILESTONED %}        added {{ templates.issue_link }} to {{ milestone_link(milestone) }}
+    {% elif action == DEMILESTONED %}      removed {{ templates.issue_link }} from {{ milestone_link(milestone) }}
+    {% elif action == ASSIGNED %}          assigned {{ user_link(assignee) }} to
+    {% elif action == UNASSIGNED %}        unassigned {{ user_link(assignee) }} from
+    {% else %}                             {{ action }}
     {% endif %}
     {% if action not in (OPENED, MILESTONED, DEMILESTONED) %}
       {{ templates.issue_link }}
@@ -125,28 +127,18 @@ messages:
       {% for label in pull_request.labels %}
         {{ fancy_label(label) }}
       {% endfor %}
-    {% elif action == SYNCHRONIZE %}  {% do abort() %}
-    {% elif action == LABELED %}      {% do abort() %}
-    {% elif action == UNLABELED %}    {% do abort() %}
-    {% elif action == X_LABEL_AGGREGATE %}
-      {% if x_added_labels %}
-        added {{ util.join_human_list(x_added_labels, mutate=fancy_label) }}
-        {% if not x_removed_labels %}to{% endif %}
-      {% endif %}
-      {% if x_removed_labels %}
-        {% if x_added_labels %}
-          and
-        {% endif %}
-        removed {{ util.join_human_list(x_removed_labels, mutate=fancy_label) }} from
-      {% endif %}
-    {% elif action == MILESTONED %}   added {{ templates.pr_link }} to {{ milestone_link(milestone) }}
-    {% elif action == DEMILESTONED %} removed {{ templates.pr_link }} from {{ milestone_link(milestone) }}
-    {% elif action == ASSIGNED %}     assigned {{ user_link(assignee) }} to
-    {% elif action == UNASSIGNED %}   unassigned {{ user_link(assignee) }} from
-    {% elif action == REVIEW_REQUESTED %}       requested a review from {{ user_link(requested_reviewer) }} for
+    {% elif action == SYNCHRONIZE %}       {% do abort() %}
+    {% elif action == LABELED %}           {% do abort() %}
+    {% elif action == UNLABELED %}         {% do abort() %}
+    {% elif action == X_LABEL_AGGREGATE %} {{ templates.label_aggregation }}
+    {% elif action == MILESTONED %}        added {{ templates.pr_link }} to {{ milestone_link(milestone) }}
+    {% elif action == DEMILESTONED %}      removed {{ templates.pr_link }} from {{ milestone_link(milestone) }}
+    {% elif action == ASSIGNED %}          assigned {{ user_link(assignee) }} to
+    {% elif action == UNASSIGNED %}        unassigned {{ user_link(assignee) }} from
+    {% elif action == REVIEW_REQUESTED %}  requested a review from {{ user_link(requested_reviewer) }} for
     {% elif action == REVIEW_REQUEST_REMOVED %} removed the review request for {{ user_link(requested_reviewer) }} from
-    {% elif action == READY_FOR_REVIEW %}       marked {{ templates.pr_link }} as ready for review
-    {% else %}                                  {{ action }}
+    {% elif action == READY_FOR_REVIEW %}  marked {{ templates.pr_link }} as ready for review
+    {% else %}                             {{ action }}
     {% endif %}
     {% if action not in (OPENED, MILESTONED, DEMILESTONED, READY_FOR_REVIEW) %}
       {{ templates.pr_link }}
@@ -172,6 +164,11 @@ messages:
   issue_comment: >
     {{ templates.repo_sender_prefix }}
     {% if action == CREATED %}
+      {% if aggregation.closed %}
+        closed and
+      {% elif aggregation.reopened %}
+        reopened and
+      {% endif %}
       <a href="{{ comment.html_url }}">commented</a> on {{ templates.issue_link }}:
       <blockquote>{{ comment.body|markdown }}</blockquote>
     {% else %}

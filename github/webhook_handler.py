@@ -13,7 +13,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import NamedTuple, Dict, Tuple, Set, Callable, Deque, Type, Optional, TYPE_CHECKING
+from typing import NamedTuple, Dict, Tuple, Set, Callable, Deque, Type, Optional, Any, TYPE_CHECKING
 from collections import deque, defaultdict
 from uuid import UUID
 import asyncio
@@ -29,7 +29,7 @@ from mautrix.util.formatter import parse_html
 from .webhook_manager import WebhookInfo
 from .template import TemplateManager, TemplateUtil
 from .api.types import (Event, EventType, Action, IssueAction, PullRequestAction, MetaAction,
-                        EVENT_ARGS, OTHER_ENUMS)
+                        CommentAction, EVENT_ARGS, OTHER_ENUMS)
 
 if TYPE_CHECKING:
     from .bot import GitHubBot
@@ -50,12 +50,14 @@ class PendingAggregation:
         pass
 
     def start_label_aggregation(self) -> None:
-        self.event.x_added_labels = []
-        self.event.x_removed_labels = []
+        self.aggregation = {
+            "added_labels": [],
+            "removed_labels": [],
+        }
         if self.event.action == self.action_type.LABELED:
-            self.event.x_added_labels.append(self.event.label)
+            self.aggregation["added_labels"].append(self.event.label)
         else:
-            self.event.x_removed_labels.append(self.event.label)
+            self.aggregation["removed_labels"].append(self.event.label)
         self.event.action = self.action_type.X_LABEL_AGGREGATE
 
     def start_open_label_dropping(self) -> None:
@@ -70,6 +72,9 @@ class PendingAggregation:
         (EventType.PULL_REQUEST, PullRequestAction.OPENED): start_open_label_dropping,
         (EventType.PULL_REQUEST, PullRequestAction.LABELED): start_label_aggregation,
         (EventType.PULL_REQUEST, PullRequestAction.UNLABELED): start_label_aggregation,
+        (EventType.ISSUE_COMMENT, CommentAction.CREATED): noop,
+        (EventType.ISSUES, IssueAction.REOPENED): noop,
+        (EventType.ISSUES, IssueAction.CLOSED): noop,
     }
 
     timeout = 1
@@ -80,6 +85,7 @@ class PendingAggregation:
     event_type: EventType
     action_type: Type[Action]
     event: Event
+    aggregation: Dict[str, Any]
     postpone: asyncio.Event
 
     _label_ids: Optional[Set[int]]
@@ -90,6 +96,7 @@ class PendingAggregation:
         self.webhook_info = webhook_info
         self.event_type = evt_type
         self.event = evt
+        self.aggregation = {}
         self.delivery_ids = {delivery_id}
         self.postpone = asyncio.Event()
         if self.event_type == EventType.ISSUES:
@@ -134,10 +141,26 @@ class PendingAggregation:
 
     async def _send(self) -> None:
         await self.handler.send_message(self.event_type, self.event, self.webhook_info.room_id,
-                                        self.delivery_ids)
+                                        self.delivery_ids, aggregation=self.aggregation)
 
     def aggregate(self, evt_type: EventType, evt: Event, delivery_id: str) -> bool:
-        if evt_type != self.event_type:
+        if (evt_type == EventType.ISSUES and self.event_type == EventType.ISSUE_COMMENT
+                and evt.action in (IssueAction.CLOSED, IssueAction.REOPENED)
+                and self.event.sender.id == evt.sender.id):
+            if evt.action == IssueAction.CLOSED:
+                self.aggregation["closed"] = True
+            elif evt.action == IssueAction.REOPENED:
+                self.aggregation["reopened"] = True
+        elif (evt_type == EventType.ISSUE_COMMENT and self.event_type == EventType.ISSUES
+              and evt.action == CommentAction.CREATED and self.event.sender.id == evt.sender.id
+              and self.event.action in (IssueAction.CLOSED, IssueAction.REOPENED)):
+            self.event_type = evt_type
+            self.event = evt
+            if evt.action == IssueAction.CLOSED:
+                self.aggregation["closed"] = True
+            elif evt.action == IssueAction.REOPENED:
+                self.aggregation["reopened"] = True
+        elif evt_type != self.event_type:
             return False
         elif self.event_type in (EventType.ISSUES, EventType.PULL_REQUEST):
             if self.event.action == self.action_type.OPENED and evt.label.id in self._label_ids:
@@ -145,9 +168,9 @@ class PendingAggregation:
                 pass
             elif self.event.action == self.action_type.X_LABEL_AGGREGATE:
                 if evt.action == self.action_type.LABELED:
-                    self.event.x_added_labels.append(evt.label)
+                    self.aggregation["added_labels"].append(evt.label)
                 elif evt.action == self.action_type.UNLABELED:
-                    self.event.x_removed_labels.append(evt.label)
+                    self.aggregation["removed_labels"].append(evt.label)
                 else:
                     return False
             else:
@@ -192,16 +215,19 @@ class WebhookHandler:
             self.log.debug(f"Received delete hook for {webhook_info}")
             self.bot.webhooks.delete(webhook_info.id)
 
+        if PendingAggregation.timeout < 0:
+            # Aggregations are disabled
+            await self.send_message(evt_type, evt, webhook_info.room_id, {delivery_id})
+
         for pending in self.pending_aggregations[webhook_info.id]:
             if pending.aggregate(evt_type, evt, delivery_id):
-                # Send the message normally to allow custom templates to opt out of aggregation
-                await self.send_message(evt_type, evt, webhook_info.room_id, {delivery_id})
                 return
         asyncio.ensure_future(PendingAggregation(self, evt_type, evt, delivery_id, webhook_info)
                               .start())
 
     async def send_message(self, evt_type: EventType, evt: Event, room_id: RoomID,
-                           delivery_ids: Set[str]) -> None:
+                           delivery_ids: Set[str], aggregation: Optional[Dict[str, Any]] = None
+                           ) -> None:
         try:
             tpl = self.messages[str(evt_type)]
         except TemplateNotFound:
@@ -219,6 +245,7 @@ class WebhookHandler:
             **OTHER_ENUMS,
             "util": TemplateUtil,
             "abort": abort,
+            "aggregation": aggregation,
         }
         args["templates"] = self.templates.proxy(args)
         content = TextMessageEventContent(msgtype=self.msgtype, format=Format.HTML,
