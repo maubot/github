@@ -2,8 +2,8 @@
 client_id: 468af815560fb4587287
 client_secret: 02146f4074f8564ed17b7a6b7a1b95271537875a
 
-# Random string for signing webhook secrets.
-# If set to "generate", one will be generated for you.
+# Random string for signing webhook secrets. If set to "generate", one will be generated for you.
+# WARNING: Changing this will invalidate all created webhooks.
 webhook_key: generate
 
 command_options:
