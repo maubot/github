@@ -144,7 +144,7 @@ class Commands:
                          for hook in hooks)
         await evt.reply(f"GitHub webhooks in this room:\n\n{info}")
 
-    @webhook.subcommand("add", aliases=["a"], help="Add a webhook for this room.")
+    @webhook.subcommand("add", aliases=["a", "create", "c"], help="Add a webhook for this room.")
     @command.argument("repo", required=True, matches=repo_syntax, label="owner/repo")
     @authenticated
     async def webhook_create(self, evt: MessageEvent, repo: Tuple[str, str], client: GitHubClient

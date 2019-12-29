@@ -155,7 +155,7 @@ class GitHubClient:
                            active: Optional[bool] = None, events: OptStrList = None,
                            add_events: OptStrList = None, remove_events: OptStrList = None,
                            content_type: Optional[str] = None, secret: Optional[str] = None,
-                           insecure_ssl: Optional[str] = None) -> Webhook:
+                           insecure_ssl: Optional[bool] = None) -> Webhook:
         payload = {}
         if events:
             if add_events or remove_events:
