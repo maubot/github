@@ -96,7 +96,8 @@ class PendingAggregation:
             self.action_type = IssueAction
         elif self.event_type == EventType.PULL_REQUEST:
             self.action_type = PullRequestAction
-        else:
+        # TODO remaining action types
+        elif not hasattr(self.event, "action"):
             self.event.action = None
 
     async def start(self) -> None:
