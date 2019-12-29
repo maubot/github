@@ -13,7 +13,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import NamedTuple, Dict, Tuple, Set, Callable, Deque, Type, TYPE_CHECKING
+from typing import NamedTuple, Dict, Tuple, Set, Callable, Deque, Type, Optional, TYPE_CHECKING
 from collections import deque, defaultdict
 from uuid import UUID
 import asyncio
@@ -50,19 +50,24 @@ class PendingAggregation:
         pass
 
     def start_label_aggregation(self) -> None:
-        self.event.action = self.action_type.X_LABEL_AGGREGATE
         self.event.x_added_labels = []
         self.event.x_removed_labels = []
         if self.event.action == self.action_type.LABELED:
             self.event.x_added_labels.append(self.event.label)
         else:
             self.event.x_removed_labels.append(self.event.label)
+        self.event.action = self.action_type.X_LABEL_AGGREGATE
+
+    def start_open_label_dropping(self) -> None:
+        event_field = (self.event.issue if self.event_type == EventType.ISSUES
+                       else self.event.pull_request)
+        self._label_ids = {label.id for label in event_field.labels}
 
     aggregation_starters: Dict[Tuple[EventType, Action], Callable] = {
-        (EventType.ISSUES, IssueAction.OPENED): noop,
+        (EventType.ISSUES, IssueAction.OPENED): start_open_label_dropping,
         (EventType.ISSUES, IssueAction.LABELED): start_label_aggregation,
         (EventType.ISSUES, IssueAction.UNLABELED): start_label_aggregation,
-        (EventType.PULL_REQUEST, PullRequestAction.OPENED): noop,
+        (EventType.PULL_REQUEST, PullRequestAction.OPENED): start_open_label_dropping,
         (EventType.PULL_REQUEST, PullRequestAction.LABELED): start_label_aggregation,
         (EventType.PULL_REQUEST, PullRequestAction.UNLABELED): start_label_aggregation,
     }
@@ -76,6 +81,8 @@ class PendingAggregation:
     action_type: Type[Action]
     event: Event
     postpone: asyncio.Event
+
+    _label_ids: Optional[Set[int]]
 
     def __init__(self, handler: 'WebhookHandler', evt_type: EventType, evt: Event, delivery_id: str,
                  webhook_info: WebhookInfo) -> None:
@@ -105,6 +112,7 @@ class PendingAggregation:
             # Nothing to aggregate, send right away
             await self._send()
             return
+
         starter(self)
 
         self.handler.pending_aggregations[self.webhook_info.id].append(self)
@@ -131,9 +139,7 @@ class PendingAggregation:
         if evt_type != self.event_type:
             return False
         elif self.event_type in (EventType.ISSUES, EventType.PULL_REQUEST):
-            event_field = (self.event.issue if self.event_type == EventType.ISSUES
-                           else self.event.pull_request)
-            if self.event.action == self.action_type.OPENED and evt.label.id in event_field:
+            if self.event.action == self.action_type.OPENED and evt.label.id in self._label_ids:
                 # Label was already in original event, drop the message.
                 pass
             elif self.event.action == self.action_type.X_LABEL_AGGREGATE:
