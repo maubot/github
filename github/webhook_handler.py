@@ -170,14 +170,17 @@ class WebhookHandler:
     def __init__(self, bot: 'GitHubBot') -> None:
         self.bot = bot
         self.log = self.bot.log.getChild("webhook")
-        self.msgtype = MessageType(bot.config["msgtype"]) or MessageType.NOTICE
+        self.msgtype = MessageType(bot.config["message_options.msgtype"]) or MessageType.NOTICE
+        PendingAggregation.timeout = int(bot.config["message_options.aggregation_timeout"])
         self.messages = TemplateManager(self.bot.config, "messages")
         self.templates = TemplateManager(self.bot.config, "templates")
         self.pending_aggregations = defaultdict(lambda: deque())
 
-    def reload_templates(self) -> None:
+    def reload_config(self) -> None:
         self.messages.reload()
         self.templates.reload()
+        self.msgtype = MessageType(self.bot.config["message_options.msgtype"]) or MessageType.NOTICE
+        PendingAggregation.timeout = int(self.bot.config["message_options.aggregation_timeout"])
 
     async def __call__(self, evt_type: EventType, evt: Event, delivery_id: str,
                        webhook_info: WebhookInfo) -> None:

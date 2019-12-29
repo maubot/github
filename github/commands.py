@@ -13,7 +13,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Tuple, Optional, TYPE_CHECKING
+from typing import Tuple, Optional, Set, TYPE_CHECKING
 import json
 
 from maubot import MessageEvent
@@ -44,10 +44,28 @@ repo_syntax = r"([A-Za-z0-9-_]+)/([A-Za-z0-9-_]+)"
 class Commands:
     bot: 'GitHubBot'
 
+    _command_prefix: str
+    _aliases: Set[str]
+
     def __init__(self, bot: 'GitHubBot') -> None:
         self.bot = bot
+        self.reload_config()
 
-    @command.new("github", aliases=["gh"], require_subcommand=True)
+    def reload_config(self) -> None:
+        prefix = self.bot.config["command_options.prefix"]
+        if isinstance(prefix, str):
+            self._command_prefix = prefix
+            self._aliases = set()
+        elif isinstance(prefix, list):
+            self._command_prefix = prefix[0]
+            self._aliases = set(prefix[1:])
+        else:
+            self._command_prefix = "github"
+            self._aliases = {"gh"}
+
+    @command.new(name=lambda self: self._command_prefix,
+                 aliases=lambda self, alias: alias in self._aliases,
+                 require_subcommand=True)
     async def github(self, evt: MessageEvent) -> None:
         pass
 

@@ -62,8 +62,8 @@ class GitHubBot(Plugin):
         self.config.load_and_update()
         self.clients.client_id = self.config["client_id"]
         self.clients.client_secret = self.config["client_secret"]
-        self.webhook_handler.msgtype = MessageType(self.config["msgtype"])
-        self.webhook_handler.reload_templates()
+        self.webhook_handler.reload_config()
+        self.commands.reload_config()
 
     @classmethod
     def get_config_class(cls) -> Type[Config]:

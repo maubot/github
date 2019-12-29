@@ -6,8 +6,18 @@ client_secret: 02146f4074f8564ed17b7a6b7a1b95271537875a
 # If set to "generate", one will be generated for you.
 webhook_key: generate
 
-# Message type for webhook messages.
-msgtype: m.notice
+command_options:
+  # Prefix for all the bot commands. Does not include the !
+  prefix:
+  - github
+  - gh
+
+message_options:
+  # Message type for webhook messages.
+  msgtype: m.notice
+  # Number of seconds to wait for more webhooks before sending a message.
+  # This is used for combining label adding and other such things into one message.
+  aggregation_timeout: 1
 
 # Templates are Jinja2 templates that get all the event fields as arguments,
 # like message templates do. You can insert them into messages and other
