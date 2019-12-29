@@ -72,6 +72,7 @@ class ClientManager:
 
     @web_handler.get("/auth")
     async def login_callback(self, request: web.Request) -> web.Response:
+        # TODO fancy webpages here
         try:
             user_id = UserID(request.query["user_id"])
             code = request.query["code"]

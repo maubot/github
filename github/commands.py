@@ -47,7 +47,7 @@ class Commands:
     def __init__(self, bot: 'GitHubBot') -> None:
         self.bot = bot
 
-    @command.new("github", require_subcommand=True)
+    @command.new("github", aliases=["gh"], require_subcommand=True)
     async def github(self, evt: MessageEvent) -> None:
         pass
 
@@ -89,13 +89,17 @@ class Commands:
                         f"{json.dumps(resp, indent=2)}"
                         "</code></pre>", allow_html=True)
 
-    @github.subcommand("create", help="Create an issue.")
-    @command.argument("repo", required=False, matches=repo_syntax)
-    @command.argument("data", required=True, pass_raw=True)
+    @github.subcommand("create", help="Create an issue. Title on first line, body on other lines")
+    @command.argument("repo", required=False, matches=repo_syntax, label="owner/repo")
+    @command.argument("data", required=True, pass_raw=True, label="title and body")
     @authenticated
     async def create_issue(self, evt: MessageEvent, repo: Tuple[str, str], data: str,
                            client: GitHubClient) -> None:
         title, body = data.split("\n", 1) if "\n" in data else (data, "")
+        if not repo:
+            # TODO support setting default repo
+            await evt.reply("This room does not have a default repo")
+            return
         repo_id = await client.query(query="repository (name: $name, owner: $owner) { id }",
                                      args="$owner: String!, $name: String!",
                                      variables={"owner": repo[0], "name": repo[1]},
@@ -110,11 +114,11 @@ class Commands:
                                     path="createIssue.issue")
         await evt.reply(f"Created [issue #{issue['number']}]({issue['url']})")
 
-    @github.subcommand("webhook", help="Manage webhooks.", required_subcommand=True)
+    @github.subcommand("webhook", aliases=["w"], help="Manage webhooks.", required_subcommand=True)
     async def webhook(self, evt: MessageEvent, repo: Tuple[str, str], client: GitHubClient) -> None:
         pass
 
-    @webhook.subcommand("list", help="List webhooks in this room.")
+    @webhook.subcommand("list", aliases=["ls", "l"], help="List webhooks in this room.")
     async def webhook_list(self, evt: MessageEvent) -> None:
         hooks = self.bot.webhooks.get_all_for_room(evt.room_id)
         info = "\n".join(f"* `{hook.repo}` added by "
@@ -122,8 +126,8 @@ class Commands:
                          for hook in hooks)
         await evt.reply(f"GitHub webhooks in this room:\n\n{info}")
 
-    @webhook.subcommand("add", help="Add a webhook for this room.")
-    @command.argument("repo", required=True, matches=repo_syntax)
+    @webhook.subcommand("add", aliases=["a"], help="Add a webhook for this room.")
+    @command.argument("repo", required=True, matches=repo_syntax, label="owner/repo")
     @authenticated
     async def webhook_create(self, evt: MessageEvent, repo: Tuple[str, str], client: GitHubClient
                              ) -> None:
@@ -139,7 +143,7 @@ class Commands:
         await evt.reply(f"Successfully created webhook for {repo_name}")
 
     @webhook.subcommand("remove", aliases=["delete", "rm", "del"])
-    @command.argument("repo", required=True, matches=repo_syntax)
+    @command.argument("repo", required=True, matches=repo_syntax, label="owner/repo")
     @authenticated(required=False)
     async def webhook_remove(self, evt: MessageEvent, repo: Tuple[str, str],
                              client: Optional[GitHubClient]) -> None:
@@ -166,3 +170,10 @@ class Commands:
             await evt.reply("Webhook deleted locally, but it may still exist on GitHub")
         else:
             await evt.reply("Webhook deleted locally")
+
+    @webhook.subcommand("inspect", aliases=["i"])
+    @command.argument("repo", required=True, matches=repo_syntax, label="owner/repo")
+    @authenticated(required=False)
+    async def webhook_inspect(self, evt: MessageEvent, repo: Tuple[str, str], client: GitHubClient
+                              ) -> None:
+        pass

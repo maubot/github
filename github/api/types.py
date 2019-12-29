@@ -13,7 +13,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Optional, NewType, List, Union
+from typing import Optional, NewType, List, Union, Type, Dict
 from datetime import datetime
 
 from attr import dataclass
@@ -822,19 +822,26 @@ EVENT_TYPES = {
     "pull_request_review_comment": PullRequestReviewCommentEvent,
 }
 
-ACTION_TYPES = {
-    "IssueAction": IssueAction,
-    "StarAction": StarAction,
-    "CommentAction": CommentAction,
-    "ReleaseAction": ReleaseAction,
-    "MetaAction": MetaAction,
-    "MilestoneAction": MilestoneAction,
-    "LabelAction": LabelAction,
-    "WikiPageAction": WikiPageAction,
-    "PullRequestAction": PullRequestAction,
-    "PRAction": PullRequestAction,
-    "PullRequestReviewAction": PullRequestReviewAction,
-    "ReviewAction": PullRequestReviewAction,
 
+def expand_enum(enum: Type[SerializableEnum]) -> Dict[str, SerializableEnum]:
+    return {field.name: field.value for field in enum}
+
+
+EVENT_ARGS = {
+    "issues": expand_enum(IssueAction),
+    "star": expand_enum(StarAction),
+    "commit_comment": expand_enum(CommentAction),
+    "issue_comment": expand_enum(CommentAction),
+    "pull_request": expand_enum(PullRequestAction),
+    "pull_request_review": expand_enum(PullRequestReviewAction),
+    "pull_request_review_comment": expand_enum(PullRequestReviewCommentAction),
+    "gollum": expand_enum(WikiPageAction),
+    "meta": expand_enum(MetaAction),
+    "release": expand_enum(ReleaseAction),
+    "milestone": expand_enum(MilestoneAction),
+    "label": expand_enum(LabelAction),
+}
+
+EXTRA_ARGS = {
     "ReviewState": ReviewState,
 }

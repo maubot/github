@@ -13,17 +13,10 @@ msgtype: m.notice
 # like message templates do. You can insert them into messages and other
 # templates as if they were arguments.
 templates:
-  repo_prefix: >
-    <strong>[{{ repo_link(repository) }}]</strong>
-  repo_sender_prefix: >
-    {{ templates.repo_prefix }} {{ user_link(sender) }}
-  issue_link: >
-    <a href="{{ issue.html_url }}">
-      {{"pull request" if issue.pull_request else "issue"}}
-      #{{ issue.number -}}
-    </a>: {{ issue.title|e }}
-  pr_link: >
-    <a href="{{ pull_request.html_url }}">pull request #{{ pull_request.number }}</a>: {{ pull_request.title|e }}
+  repo_prefix: <strong>[{{ repo_link(repository) }}]</strong>
+  repo_sender_prefix: "{{ templates.repo_prefix }} {{ user_link(sender) }}"
+  issue_link: "{{ issueish_link(issue) }}"
+  pr_link: "{{ issueish_link(pull_request) }}"
 
 # Macros is a single Jinja2 template that is prepended to all other templates.
 # It is useful for having macro functions that are usable anywhere.
@@ -35,6 +28,13 @@ macros: >
       data-mx-bg-color="#{{ label.color }}"
       title="{{ label.description }}"
     >&nbsp;{{ label.name }}&nbsp;</font>
+  {%- endmacro -%}
+
+  {%- macro issueish_link(issue, pull_request = False) -%}
+    <a href="{{ issue.html_url }}">
+      {{"pull request" if pull_request or issue.pull_request else "issue"}}
+      #{{ issue.number -}}
+    </a>: {{ issue.title|e }}
   {%- endmacro -%}
 
   {%- macro user_link(user) -%}
@@ -64,7 +64,7 @@ messages:
   # Star events happen when someone stars or unstars the repo.
   # The watch event also happens when someone stars the repo, not sure if that would be better.
   star: >
-    {{ templates.repo_sender_prefix }} {% if action == StarAction.DELETED %}un{% endif %}starred the repo
+    {{ templates.repo_sender_prefix }} {% if action == DELETED %}un{% endif %}starred the repo
 
   fork: >
     {{ templates.repo_prefix }} Repo forked into {{ repo_link(forkee) }}
@@ -72,7 +72,7 @@ messages:
   # All events that change an issue itself (i.e. everything except comments)
   issues: >
     {{ templates.repo_sender_prefix }}
-    {% if action == IssueAction.OPENED %}
+    {% if action == OPENED %}
       opened {{ templates.issue_link }}<br/>
       {% if issue.body %}
         <blockquote>{{ issue.body|markdown }}</blockquote>
@@ -80,21 +80,21 @@ messages:
       {% for label in issue.labels %}
         {{ fancy_label(label) }}
       {% endfor %}
-    {% elif action == IssueAction.LABELED %}      added {{ fancy_label(label) }} to
-    {% elif action == IssueAction.UNLABELED %}    removed {{ fancy_label(label) }} from
-    {% elif action == IssueAction.MILESTONED %}   added {{ templates.issue_link }} to {{ milestone_link(milestone) }}
-    {% elif action == IssueAction.DEMILESTONED %} removed {{ templates.issue_link }} from {{ milestone_link(milestone) }}
-    {% elif action == IssueAction.ASSIGNED %}     assigned {{ user_link(assignee) }} to
-    {% elif action == IssueAction.UNASSIGNED %}   unassigned {{ user_link(assignee) }} from
+    {% elif action == LABELED %}      added {{ fancy_label(label) }} to
+    {% elif action == UNLABELED %}    removed {{ fancy_label(label) }} from
+    {% elif action == MILESTONED %}   added {{ templates.issue_link }} to {{ milestone_link(milestone) }}
+    {% elif action == DEMILESTONED %} removed {{ templates.issue_link }} from {{ milestone_link(milestone) }}
+    {% elif action == ASSIGNED %}     assigned {{ user_link(assignee) }} to
+    {% elif action == UNASSIGNED %}   unassigned {{ user_link(assignee) }} from
     {% else %}                                    {{ action }}
     {% endif %}
-    {% if action not in (IssueAction.OPENED, IssueAction.MILESTONED, IssueAction.DEMILESTONED) %}
+    {% if action not in (OPENED, MILESTONED, DEMILESTONED) %}
       {{ templates.issue_link }}
     {% endif %}
 
   pull_request: >
     {{ templates.repo_sender_prefix }}
-    {% if action == PRAction.OPENED %}
+    {% if action == OPENED %}
       {% if pull_request.draft %}drafted
       {% else %}opened{% endif %}
       {{ templates.pr_link }}
@@ -104,19 +104,19 @@ messages:
       {% for label in pull_request.labels %}
         {{ fancy_label(label) }}
       {% endfor %}
-    {% elif action == PRAction.SYNCHRONIZE %}  {% do abort() %}
-    {% elif action == PRAction.LABELED %}      added {{ fancy_label(label) }} to
-    {% elif action == PRAction.UNLABELED %}    removed {{ fancy_label(label) }} from
-    {% elif action == PRAction.MILESTONED %}   added {{ templates.pr_link }} to {{ milestone_link(milestone) }}
-    {% elif action == PRAction.DEMILESTONED %} removed {{ templates.pr_link }} from {{ milestone_link(milestone) }}
-    {% elif action == PRAction.ASSIGNED %}     assigned {{ user_link(assignee) }} to
-    {% elif action == PRAction.UNASSIGNED %}   unassigned {{ user_link(assignee) }} from
-    {% elif action == PRAction.REVIEW_REQUESTED %}       requested a review from {{ user_link(requested_reviewer) }} for
-    {% elif action == PRAction.REVIEW_REQUEST_REMOVED %} removed the review request for {{ user_link(requested_reviewer) }} from
-    {% elif action == PRAction.READY_FOR_REVIEW %}       marked {{ templates.pr_link }} as ready for review
+    {% elif action == SYNCHRONIZE %}  {% do abort() %}
+    {% elif action == LABELED %}      added {{ fancy_label(label) }} to
+    {% elif action == UNLABELED %}    removed {{ fancy_label(label) }} from
+    {% elif action == MILESTONED %}   added {{ templates.pr_link }} to {{ milestone_link(milestone) }}
+    {% elif action == DEMILESTONED %} removed {{ templates.pr_link }} from {{ milestone_link(milestone) }}
+    {% elif action == ASSIGNED %}     assigned {{ user_link(assignee) }} to
+    {% elif action == UNASSIGNED %}   unassigned {{ user_link(assignee) }} from
+    {% elif action == REVIEW_REQUESTED %}       requested a review from {{ user_link(requested_reviewer) }} for
+    {% elif action == REVIEW_REQUEST_REMOVED %} removed the review request for {{ user_link(requested_reviewer) }} from
+    {% elif action == READY_FOR_REVIEW %}       marked {{ templates.pr_link }} as ready for review
     {% else %}                                           {{ action }}
     {% endif %}
-    {% if action not in (PRAction.OPENED, PRAction.MILESTONED, PRAction.DEMILESTONED, PRAction.READY_FOR_REVIEW) %}
+    {% if action not in (OPENED, MILESTONED, DEMILESTONED, READY_FOR_REVIEW) %}
       {{ templates.pr_link }}
     {% endif %}
 
@@ -139,7 +139,7 @@ messages:
 
   issue_comment: >
     {{ templates.repo_sender_prefix }}
-    {% if action == CommentAction.CREATED %}
+    {% if action == CREATED %}
       <a href="{{ comment.html_url }}">commented</a> on {{ templates.issue_link }}:
       <blockquote>{{ comment.body|markdown }}</blockquote>
     {% else %}
@@ -174,14 +174,14 @@ messages:
     </ul>
 
   release: >
-    {% if action != ReleaseAction.PUBLISHED %} {% do abort() %} {% endif %}
+    {% if action != PUBLISHED %} {% do abort() %} {% endif %}
 
     {{ templates.repo_sender_prefix }} published
     <a href="{{ release.html_url }}">{{ release.tag_name }}: {{ release.name }}</a>
 
   # Meta events are sent when the webhook itself is deleted.
   meta: >
-    {% if action != MetaAction.DELETED %} {% do abort() %} {% endif %}
+    {% if action != DELETED %} {% do abort() %} {% endif %}
 
     {{ templates.repo_prefix }} Webhook deleted by {{ user_link(sender) }}
 

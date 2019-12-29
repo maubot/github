@@ -25,7 +25,7 @@ from mautrix.util.formatter import parse_html
 
 from .webhook_manager import WebhookInfo
 from .template import TemplateManager, TemplateUtil
-from .api.types import Event, ACTION_TYPES, MetaAction
+from .api.types import Event, EVENT_ARGS, EXTRA_ARGS, MetaAction
 
 if TYPE_CHECKING:
     from .bot import GitHubBot
@@ -84,7 +84,8 @@ class WebhookHandler:
 
         args = {
             **attr.asdict(info.event, recurse=False),
-            **ACTION_TYPES,
+            **EVENT_ARGS[template],
+            **EXTRA_ARGS,
             "util": TemplateUtil,
             "abort": abort,
         }
