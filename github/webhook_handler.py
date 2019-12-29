@@ -95,7 +95,7 @@ class PendingAggregation:
         if self.event_type == EventType.ISSUES:
             self.action_type = IssueAction
         elif self.event_type == EventType.PULL_REQUEST:
-            self.action_type = IssueAction
+            self.action_type = PullRequestAction
         else:
             self.event.action = None
 
