@@ -64,6 +64,23 @@ class User(SerializableAttrs['User']):
 
 
 @dataclass
+class Organization(SerializableAttrs['Organization']):
+    id: int
+    node_id: str
+    login: str
+    description: str
+
+    url: str
+    avatar_url: str
+    repos_url: str
+    public_members_url: str
+    issues_url: str
+    hooks_url: str
+    events_url: str
+    avatar_url: str
+
+
+@dataclass
 class GitUser(SerializableAttrs['GitUser']):
     name: str
     email: str
@@ -800,6 +817,29 @@ class PullRequestReviewCommentEvent(SerializableAttrs['PullRequestReviewCommentE
     changes: Optional[ReviewChanges] = None
 
 
+class RepositoryAction(SerializableEnum):
+    CREATED = "created"
+    DELETED = "deleted"
+    ARCHIVED = "archived"
+    UNARCHIVED = "unarchived"
+    EDITED = "edited"
+    RENAMED = "renamed"
+    TRANSFERRED = "transferred"
+    PUBLICIZED = "publicized"
+    PRIVATIZED = "privatized"
+
+
+@dataclass
+class RepositoryEvent(SerializableAttrs['RepositoryEvent']):
+    action: RepositoryAction
+    repository: Repository
+    sender: User
+
+    organization: Optional[Organization] = None
+    user: Optional[User] = None
+    changes: Optional[JSON] = None
+
+
 class EventType(SerializableEnum):
     ISSUES = "issues"
     ISSUE_COMMENT = "issue_comment"
@@ -819,16 +859,17 @@ class EventType(SerializableEnum):
     PULL_REQUEST = "pull_request"
     PULL_REQUEST_REVIEW = "pull_request_review"
     PULL_REQUEST_REVIEW_COMMENT = "pull_request_review_comment"
+    REPOSITORY = "repository"
 
 
 Event = Union[IssuesEvent, IssueCommentEvent, PushEvent, ReleaseEvent, StarEvent, WatchEvent,
               PingEvent, ForkEvent, CreateEvent, MetaEvent, CommitCommentEvent, MilestoneEvent,
               LabelEvent, WikiEvent, PublicEvent, PullRequestEvent, PullRequestReviewEvent,
-              PullRequestReviewCommentEvent]
+              PullRequestReviewCommentEvent, RepositoryEvent]
 
 Action = Union[IssueAction, StarAction, CommentAction, WikiPageAction, MetaAction, ReleaseAction,
                PullRequestAction, PullRequestReviewAction, PullRequestReviewCommentAction,
-               MilestoneAction, LabelAction]
+               MilestoneAction, LabelAction, RepositoryAction]
 
 EVENT_CLASSES = {
     EventType.ISSUES: IssuesEvent,
@@ -849,6 +890,7 @@ EVENT_CLASSES = {
     EventType.PULL_REQUEST: PullRequestEvent,
     EventType.PULL_REQUEST_REVIEW: PullRequestReviewEvent,
     EventType.PULL_REQUEST_REVIEW_COMMENT: PullRequestReviewCommentEvent,
+    EventType.REPOSITORY: RepositoryEvent,
 }
 
 
@@ -869,6 +911,7 @@ EVENT_ARGS = {
     EventType.RELEASE: expand_enum(ReleaseAction),
     EventType.MILESTONE: expand_enum(MilestoneAction),
     EventType.LABEL: expand_enum(LabelAction),
+    EventType.REPOSITORY: expand_enum(RepositoryAction),
 }
 
 OTHER_ENUMS = {

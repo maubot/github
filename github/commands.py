@@ -55,13 +55,13 @@ class Commands:
         prefix = self.bot.config["command_options.prefix"]
         if isinstance(prefix, str):
             self._command_prefix = prefix
-            self._aliases = set()
-        elif isinstance(prefix, list):
+            self._aliases = {prefix}
+        elif isinstance(prefix, list) and len(prefix) > 0:
             self._command_prefix = prefix[0]
-            self._aliases = set(prefix[1:])
+            self._aliases = set(prefix)
         else:
             self._command_prefix = "github"
-            self._aliases = {"gh"}
+            self._aliases = {"github", "gh"}
 
     @command.new(name=lambda self: self._command_prefix,
                  aliases=lambda self, alias: alias in self._aliases,

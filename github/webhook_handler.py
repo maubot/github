@@ -29,7 +29,7 @@ from mautrix.util.formatter import parse_html
 from .webhook_manager import WebhookInfo
 from .template import TemplateManager, TemplateUtil
 from .api.types import (Event, EventType, Action, IssueAction, PullRequestAction, MetaAction,
-                        CommentAction, EVENT_ARGS, OTHER_ENUMS)
+                        CommentAction, RepositoryAction, EVENT_ARGS, OTHER_ENUMS)
 
 if TYPE_CHECKING:
     from .bot import GitHubBot
@@ -208,12 +208,18 @@ class WebhookHandler:
 
     async def __call__(self, evt_type: EventType, evt: Event, delivery_id: str,
                        webhook_info: WebhookInfo) -> None:
-        if evt_type == "ping":
+        if evt_type == EventType.PING:
             self.log.debug(f"Received ping for {webhook_info}: {evt.zen}")
             self.bot.webhooks.set_github_id(webhook_info, evt.hook_id)
-        elif evt_type == "meta" and evt.action == MetaAction.DELETED:
+        elif evt_type == EventType.META and evt.action == MetaAction.DELETED:
             self.log.debug(f"Received delete hook for {webhook_info}")
             self.bot.webhooks.delete(webhook_info.id)
+        elif evt_type == EventType.REPOSITORY and evt.action == RepositoryAction.TRANSFERRED:
+            self.log.debug(f"Received transfer hook {webhook_info} -> {evt.repository.full_name}")
+            self.bot.webhooks.transfer(webhook_info, evt.repository.full_name)
+        elif evt_type == EventType.REPOSITORY and evt.action == RepositoryAction.RENAMED:
+            self.log.debug(f"Received rename hook {webhook_info} -> {evt.repository.full_name}")
+            self.bot.webhooks.transfer(webhook_info, evt.repository.full_name)
 
         if PendingAggregation.timeout < 0:
             # Aggregations are disabled

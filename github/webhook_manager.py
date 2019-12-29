@@ -64,7 +64,6 @@ class WebhookInfo:
     def secret(self) -> str:
         secret = hmac.new(key=self._secret_key, digestmod=hashlib.sha256)
         secret.update(self.id.bytes)
-        secret.update(self.repo.encode("utf-8"))
         secret.update(self.user_id.encode("utf-8"))
         secret.update(self.room_id.encode("utf-8"))
         return secret.hexdigest()
@@ -104,6 +103,12 @@ class WebhookManager:
         self._db.execute(self._table.update()
                          .where(self._table.c.id == info.id)
                          .values(github_id=github_id))
+        return self._select(info.id)
+
+    def transfer(self, info: WebhookInfo, new_name: str) -> WebhookInfo:
+        self._db.execute(self._table.update()
+                         .where(self._table.c.id == info.id)
+                         .values(repo=new_name))
         return self._select(info.id)
 
     def delete(self, id: UUID) -> None:

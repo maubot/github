@@ -214,10 +214,6 @@ messages:
 
     {{ templates.repo_prefix }} Webhook deleted by {{ user_link(sender) }}
 
-  # Repo publication event.
-  public: >
-    {{ templates.repo_sender_prefix }} made the repo public
-
   # Wiki page events.
   gollum: >
     {% if pages|length == 0 %}
@@ -248,3 +244,14 @@ messages:
       edited {{ util.join_human_list(edited) }}
     {% endif %}
     on the wiki
+
+  repository: >
+    {{ templates.repo_sender_prefix }}
+    {% if action == PUBLICIZED %}   made the repo public
+    {% elif action == PRIVATIZED %} made the repo private
+    {% elif action == TRANSFERRED %}
+      {% set source = changes.owner.from.organization or changes.owner.from.user %}
+      transferred the repo from <a href="https://github.com/{{ source.login }}">{{ source.login }}</a>
+    {% elif action == RENAMED %}    renamed the repo from {{ changes.repository.name.from }} to {{ repository.name }}
+    {% else %}                      {{action}} the repo
+    {% endif %}
