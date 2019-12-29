@@ -13,7 +13,10 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import NamedTuple, TYPE_CHECKING
+from typing import NamedTuple, Dict, Tuple, Set, Callable, Deque, Type, TYPE_CHECKING
+from collections import deque, defaultdict
+from uuid import UUID
+import asyncio
 import logging
 import re
 
@@ -25,7 +28,8 @@ from mautrix.util.formatter import parse_html
 
 from .webhook_manager import WebhookInfo
 from .template import TemplateManager, TemplateUtil
-from .api.types import Event, EVENT_ARGS, EXTRA_ARGS, MetaAction
+from .api.types import (Event, EventType, Action, IssueAction, PullRequestAction, MetaAction,
+                        EVENT_ARGS, OTHER_ENUMS)
 
 if TYPE_CHECKING:
     from .bot import GitHubBot
@@ -41,12 +45,121 @@ spaces = re.compile(" +")
 space = " "
 
 
+class PendingAggregation:
+    def noop(self) -> None:
+        pass
+
+    def start_label_aggregation(self) -> None:
+        self.event.action = self.action_type.X_LABEL_AGGREGATE
+        self.event.x_added_labels = []
+        self.event.x_removed_labels = []
+        if self.event.action == self.action_type.LABELED:
+            self.event.x_added_labels.append(self.event.label)
+        else:
+            self.event.x_removed_labels.append(self.event.label)
+
+    aggregation_starters: Dict[Tuple[EventType, Action], Callable] = {
+        (EventType.ISSUES, IssueAction.OPENED): noop,
+        (EventType.ISSUES, IssueAction.LABELED): start_label_aggregation,
+        (EventType.ISSUES, IssueAction.UNLABELED): start_label_aggregation,
+        (EventType.PULL_REQUEST, PullRequestAction.OPENED): noop,
+        (EventType.PULL_REQUEST, PullRequestAction.LABELED): start_label_aggregation,
+        (EventType.PULL_REQUEST, PullRequestAction.UNLABELED): start_label_aggregation,
+    }
+
+    timeout = 1
+
+    handler: 'WebhookHandler'
+    webhook_info: WebhookInfo
+    delivery_ids: Set[str]
+    event_type: EventType
+    action_type: Type[Action]
+    event: Event
+    postpone: asyncio.Event
+
+    def __init__(self, handler: 'WebhookHandler', evt_type: EventType, evt: Event, delivery_id: str,
+                 webhook_info: WebhookInfo) -> None:
+        self.handler = handler
+        self.webhook_info = webhook_info
+        self.event_type = evt_type
+        self.event = evt
+        self.delivery_ids = {delivery_id}
+        self.postpone = asyncio.Event()
+        if self.event_type == EventType.ISSUES:
+            self.action_type = IssueAction
+        elif self.event_type == EventType.PULL_REQUEST:
+            self.action_type = IssueAction
+        else:
+            self.event.action = None
+
+    async def start(self) -> None:
+        try:
+            await self._start()
+        except Exception:
+            self.handler.log.exception("Fatal error in aggregation handler")
+
+    async def _start(self) -> None:
+        try:
+            starter = self.aggregation_starters[self.event_type, self.event.action]
+        except KeyError:
+            # Nothing to aggregate, send right away
+            await self._send()
+            return
+        starter(self)
+
+        self.handler.pending_aggregations[self.webhook_info.id].append(self)
+        await self._sleep()
+        self.handler.pending_aggregations[self.webhook_info.id].remove(self)
+        await self._send()
+
+    async def _sleep(self) -> None:
+        try:
+            while True:
+                # "sleep" until the postpone event is triggered or the timeout is reached
+                await asyncio.wait_for(self.postpone.wait(), self.timeout)
+                # If the event is triggered, clear it and sleep again
+                self.postpone.clear()
+        except asyncio.TimeoutError:
+            # If the timeout is reached, stop
+            pass
+
+    async def _send(self) -> None:
+        await self.handler.send_message(self.event_type, self.event, self.webhook_info.room_id,
+                                        self.delivery_ids)
+
+    def aggregate(self, evt_type: EventType, evt: Event, delivery_id: str) -> bool:
+        if evt_type != self.event_type:
+            return False
+        elif self.event_type in (EventType.ISSUES, EventType.PULL_REQUEST):
+            event_field = (self.event.issue if self.event_type == EventType.ISSUES
+                           else self.event.pull_request)
+            if self.event.action == self.action_type.OPENED and evt.label.id in event_field:
+                # Label was already in original event, drop the message.
+                pass
+            elif self.event.action == self.action_type.X_LABEL_AGGREGATE:
+                if evt.action == self.action_type.LABELED:
+                    self.event.x_added_labels.append(evt.label)
+                elif evt.action == self.action_type.UNLABELED:
+                    self.event.x_removed_labels.append(evt.label)
+                else:
+                    return False
+            else:
+                return False
+        else:
+            return False
+
+        self.delivery_ids.add(delivery_id)
+        self.postpone.set()
+        return True
+
+
 class WebhookHandler:
     log: logging.Logger
     bot: 'GitHubBot'
     msgtype: MessageType
     messages: TemplateManager
     templates: TemplateManager
+    pending_aggregations: Dict[UUID, Deque[PendingAggregation]]
 
     def __init__(self, bot: 'GitHubBot') -> None:
         self.bot = bot
@@ -54,28 +167,36 @@ class WebhookHandler:
         self.msgtype = MessageType(bot.config["msgtype"]) or MessageType.NOTICE
         self.messages = TemplateManager(self.bot.config, "messages")
         self.templates = TemplateManager(self.bot.config, "templates")
+        self.pending_aggregations = defaultdict(lambda: deque())
 
     def reload_templates(self) -> None:
         self.messages.reload()
         self.templates.reload()
 
-    async def __call__(self, evt_type: str, evt: Event, delivery_id: str, webhook_info: WebhookInfo
-                       ) -> None:
-        evt_info = WebhookMessageInfo(room_id=webhook_info.room_id, delivery_id=delivery_id,
-                                      event=evt)
+    async def __call__(self, evt_type: EventType, evt: Event, delivery_id: str,
+                       webhook_info: WebhookInfo) -> None:
         if evt_type == "ping":
             self.log.debug(f"Received ping for {webhook_info}: {evt.zen}")
-            webhook_info = self.bot.webhooks.set_github_id(webhook_info, evt.hook_id)
+            self.bot.webhooks.set_github_id(webhook_info, evt.hook_id)
         elif evt_type == "meta" and evt.action == MetaAction.DELETED:
             self.log.debug(f"Received delete hook for {webhook_info}")
             self.bot.webhooks.delete(webhook_info.id)
-        try:
-            await self._send_message(evt_type, evt_info)
-        except TemplateNotFound:
-            self.log.debug(f"Unhandled event of type {type(evt)} -- {delivery_id} {webhook_info}")
 
-    async def _send_message(self, template: str, info: WebhookMessageInfo) -> None:
-        tpl = self.messages[template]
+        for pending in self.pending_aggregations[webhook_info.id]:
+            if pending.aggregate(evt_type, evt, delivery_id):
+                # Send the message normally to allow custom templates to opt out of aggregation
+                await self.send_message(evt_type, evt, webhook_info.room_id, {delivery_id})
+                return
+        asyncio.ensure_future(PendingAggregation(self, evt_type, evt, delivery_id, webhook_info)
+                              .start())
+
+    async def send_message(self, evt_type: EventType, evt: Event, room_id: RoomID,
+                           delivery_ids: Set[str]) -> None:
+        try:
+            tpl = self.messages[str(evt_type)]
+        except TemplateNotFound:
+            self.log.debug(f"Unhandled event of type {evt_type} -- {delivery_ids}")
+            return
         aborted = False
 
         def abort() -> None:
@@ -83,9 +204,9 @@ class WebhookHandler:
             aborted = True
 
         args = {
-            **attr.asdict(info.event, recurse=False),
-            **EVENT_ARGS[template],
-            **EXTRA_ARGS,
+            **attr.asdict(evt, recurse=False),
+            **EVENT_ARGS[evt_type],
+            **OTHER_ENUMS,
             "util": TemplateUtil,
             "abort": abort,
         }
@@ -96,5 +217,5 @@ class WebhookHandler:
             return
         content.formatted_body = spaces.sub(space, content.formatted_body.strip())
         content.body = parse_html(content.formatted_body)
-        content["xyz.maubot.github.delivery_id"] = info.delivery_id
-        await self.bot.client.send_message(info.room_id, content)
+        content["xyz.maubot.github.delivery_ids"] = list(delivery_ids)
+        await self.bot.client.send_message(room_id, content)

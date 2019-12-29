@@ -80,13 +80,24 @@ messages:
       {% for label in issue.labels %}
         {{ fancy_label(label) }}
       {% endfor %}
-    {% elif action == LABELED %}      added {{ fancy_label(label) }} to
-    {% elif action == UNLABELED %}    removed {{ fancy_label(label) }} from
+    {% elif action == LABELED %}      {% do abort() %}
+    {% elif action == UNLABELED %}    {% do abort() %}
+    {% elif action == X_LABEL_AGGREGATE %}
+      {% if x_added_labels %}
+        added {{ util.join_human_list(x_added_labels, mutate=fancy_label) }}
+        {% if not x_removed_labels %}to{% endif %}
+      {% endif %}
+      {% if x_removed_labels %}
+        {% if x_added_labels %}
+          and
+        {% endif %}
+        removed {{ util.join_human_list(x_removed_labels, mutate=fancy_label) }} from
+      {% endif %}
     {% elif action == MILESTONED %}   added {{ templates.issue_link }} to {{ milestone_link(milestone) }}
     {% elif action == DEMILESTONED %} removed {{ templates.issue_link }} from {{ milestone_link(milestone) }}
     {% elif action == ASSIGNED %}     assigned {{ user_link(assignee) }} to
     {% elif action == UNASSIGNED %}   unassigned {{ user_link(assignee) }} from
-    {% else %}                                    {{ action }}
+    {% else %}                        {{ action }}
     {% endif %}
     {% if action not in (OPENED, MILESTONED, DEMILESTONED) %}
       {{ templates.issue_link }}
@@ -105,8 +116,19 @@ messages:
         {{ fancy_label(label) }}
       {% endfor %}
     {% elif action == SYNCHRONIZE %}  {% do abort() %}
-    {% elif action == LABELED %}      added {{ fancy_label(label) }} to
-    {% elif action == UNLABELED %}    removed {{ fancy_label(label) }} from
+    {% elif action == LABELED %}      {% do abort() %}
+    {% elif action == UNLABELED %}    {% do abort() %}
+    {% elif action == X_LABEL_AGGREGATE %}
+      {% if x_added_labels %}
+        added {{ util.join_human_list(x_added_labels, mutate=fancy_label) }}
+        {% if not x_removed_labels %}to{% endif %}
+      {% endif %}
+      {% if x_removed_labels %}
+        {% if x_added_labels %}
+          and
+        {% endif %}
+        removed {{ util.join_human_list(x_removed_labels, mutate=fancy_label) }} from
+      {% endif %}
     {% elif action == MILESTONED %}   added {{ templates.pr_link }} to {{ milestone_link(milestone) }}
     {% elif action == DEMILESTONED %} removed {{ templates.pr_link }} from {{ milestone_link(milestone) }}
     {% elif action == ASSIGNED %}     assigned {{ user_link(assignee) }} to
@@ -114,7 +136,7 @@ messages:
     {% elif action == REVIEW_REQUESTED %}       requested a review from {{ user_link(requested_reviewer) }} for
     {% elif action == REVIEW_REQUEST_REMOVED %} removed the review request for {{ user_link(requested_reviewer) }} from
     {% elif action == READY_FOR_REVIEW %}       marked {{ templates.pr_link }} as ready for review
-    {% else %}                                           {{ action }}
+    {% else %}                                  {{ action }}
     {% endif %}
     {% if action not in (OPENED, MILESTONED, DEMILESTONED, READY_FOR_REVIEW) %}
       {{ templates.pr_link }}

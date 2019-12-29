@@ -374,6 +374,8 @@ class IssueAction(SerializableEnum):
     MILESTONED = "milestoned"
     DEMILESTONED = "demilestoned"
 
+    X_LABEL_AGGREGATE = "xyz.maubot.issue_label_aggregation"
+
 
 @dataclass
 class Change(SerializableAttrs['Change']):
@@ -396,6 +398,9 @@ class IssuesEvent(SerializableAttrs['IssuesEvent']):
     label: Optional[Label] = None
     milestone: Optional[Milestone] = None
     changes: Optional[JSON] = None
+
+    x_added_labels: Optional[List[Label]] = None
+    x_removed_labels: Optional[List[Label]] = None
 
 
 @dataclass
@@ -702,6 +707,8 @@ class PullRequestAction(SerializableEnum):
     LOCKED = "locked"
     UNLOCKED = "unlocked"
 
+    X_LABEL_AGGREGATE = "xyz.maubot.pr_label_aggregation"
+
 
 @dataclass
 class PullRequestEvent(SerializableAttrs['PullRequestEvent']):
@@ -715,6 +722,9 @@ class PullRequestEvent(SerializableAttrs['PullRequestEvent']):
     assignee: Optional[User] = None
     milestone: Optional[Milestone] = None
     requested_reviewer: Optional[User] = None
+
+    x_added_labels: Optional[List[Label]] = None
+    x_removed_labels: Optional[List[Label]] = None
 
 
 class PullRequestReviewAction(SerializableEnum):
@@ -796,52 +806,77 @@ class PullRequestReviewCommentEvent(SerializableAttrs['PullRequestReviewCommentE
     changes: Optional[ReviewChanges] = None
 
 
+class EventType(SerializableEnum):
+    ISSUES = "issues"
+    ISSUE_COMMENT = "issue_comment"
+    PUSH = "push"
+    RELEASE = "release"
+    STAR = "star"
+    WATCH = "watch"
+    PING = "ping"
+    FORK = "fork"
+    CREATE = "create"
+    META = "meta"
+    COMMIT_COMMENT = "commit_comment"
+    MILESTONE = "milestone"
+    LABEL = "label"
+    WIKI = "gollum"
+    PUBLIC = "public"
+    PULL_REQUEST = "pull_request"
+    PULL_REQUEST_REVIEW = "pull_request_review"
+    PULL_REQUEST_REVIEW_COMMENT = "pull_request_review_comment"
+
+
 Event = Union[IssuesEvent, IssueCommentEvent, PushEvent, ReleaseEvent, StarEvent, WatchEvent,
               PingEvent, ForkEvent, CreateEvent, MetaEvent, CommitCommentEvent, MilestoneEvent,
               LabelEvent, WikiEvent, PublicEvent, PullRequestEvent, PullRequestReviewEvent,
               PullRequestReviewCommentEvent]
 
-EVENT_TYPES = {
-    "issues": IssuesEvent,
-    "issue_comment": IssueCommentEvent,
-    "push": PushEvent,
-    "release": ReleaseEvent,
-    "star": StarEvent,
-    "watch": WatchEvent,
-    "ping": PingEvent,
-    "fork": ForkEvent,
-    "create": CreateEvent,
-    "meta": MetaEvent,
-    "commit_comment": CommitCommentEvent,
-    "milestone": MilestoneEvent,
-    "label": LabelEvent,
-    "gollum": WikiEvent,
-    "public": PublicEvent,
-    "pull_request": PullRequestEvent,
-    "pull_request_review": PullRequestReviewEvent,
-    "pull_request_review_comment": PullRequestReviewCommentEvent,
+Action = Union[IssueAction, StarAction, CommentAction, WikiPageAction, MetaAction, ReleaseAction,
+               PullRequestAction, PullRequestReviewAction, PullRequestReviewCommentAction,
+               MilestoneAction, LabelAction]
+
+EVENT_CLASSES = {
+    EventType.ISSUES: IssuesEvent,
+    EventType.ISSUE_COMMENT: IssueCommentEvent,
+    EventType.PUSH: PushEvent,
+    EventType.RELEASE: ReleaseEvent,
+    EventType.STAR: StarEvent,
+    EventType.WATCH: WatchEvent,
+    EventType.PING: PingEvent,
+    EventType.FORK: ForkEvent,
+    EventType.CREATE: CreateEvent,
+    EventType.META: MetaEvent,
+    EventType.COMMIT_COMMENT: CommitCommentEvent,
+    EventType.MILESTONE: MilestoneEvent,
+    EventType.LABEL: LabelEvent,
+    EventType.WIKI: WikiEvent,
+    EventType.PUBLIC: PublicEvent,
+    EventType.PULL_REQUEST: PullRequestEvent,
+    EventType.PULL_REQUEST_REVIEW: PullRequestReviewEvent,
+    EventType.PULL_REQUEST_REVIEW_COMMENT: PullRequestReviewCommentEvent,
 }
 
 
 def expand_enum(enum: Type[SerializableEnum]) -> Dict[str, SerializableEnum]:
-    return {field.name: field.value for field in enum}
+    return {field.name: field for field in enum}
 
 
 EVENT_ARGS = {
-    "issues": expand_enum(IssueAction),
-    "star": expand_enum(StarAction),
-    "commit_comment": expand_enum(CommentAction),
-    "issue_comment": expand_enum(CommentAction),
-    "pull_request": expand_enum(PullRequestAction),
-    "pull_request_review": expand_enum(PullRequestReviewAction),
-    "pull_request_review_comment": expand_enum(PullRequestReviewCommentAction),
-    "gollum": expand_enum(WikiPageAction),
-    "meta": expand_enum(MetaAction),
-    "release": expand_enum(ReleaseAction),
-    "milestone": expand_enum(MilestoneAction),
-    "label": expand_enum(LabelAction),
+    EventType.ISSUES: expand_enum(IssueAction),
+    EventType.STAR: expand_enum(StarAction),
+    EventType.COMMIT_COMMENT: expand_enum(CommentAction),
+    EventType.ISSUE_COMMENT: expand_enum(CommentAction),
+    EventType.PULL_REQUEST: expand_enum(PullRequestAction),
+    EventType.PULL_REQUEST_REVIEW: expand_enum(PullRequestReviewAction),
+    EventType.PULL_REQUEST_REVIEW_COMMENT: expand_enum(PullRequestReviewCommentAction),
+    EventType.WIKI: expand_enum(WikiPageAction),
+    EventType.META: expand_enum(MetaAction),
+    EventType.RELEASE: expand_enum(ReleaseAction),
+    EventType.MILESTONE: expand_enum(MilestoneAction),
+    EventType.LABEL: expand_enum(LabelAction),
 }
 
-EXTRA_ARGS = {
+OTHER_ENUMS = {
     "ReviewState": ReviewState,
 }

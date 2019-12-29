@@ -24,7 +24,7 @@ from aiohttp import web
 from mautrix.types import SerializerError
 from maubot.handlers import web as web_handler
 
-from ..api.types import EVENT_TYPES
+from ..api.types import EventType, EVENT_CLASSES
 
 
 if TYPE_CHECKING:
@@ -48,10 +48,12 @@ class GitHubWebhookReceiver:
             return web.Response(status=404, text="Webhook not found")
         try:
             signature = request.headers["X-Hub-Signature"]
-            event_type = request.headers["X-Github-Event"]
+            event_type = EventType(request.headers["X-Github-Event"])
             delivery_id = request.headers["X-Github-Delivery"]
         except KeyError as e:
             return web.Response(status=400, text=f"Missing {e.args[0]} header")
+        except ValueError:
+            return web.Response(status=500, text="Unsupported event type")
         text = await request.text()
         text_binary = text.encode("utf-8")
         secret = webhook_info.secret.encode("utf-8")
@@ -65,7 +67,7 @@ class GitHubWebhookReceiver:
         if not data:
             return web.Response(status=400, text="Malformed JSON")
         try:
-            type_class = EVENT_TYPES[event_type]
+            type_class = EVENT_CLASSES[event_type]
         except KeyError:
             return web.Response(status=500, text="Unsupported event type")
         try:
