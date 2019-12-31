@@ -27,7 +27,7 @@ templates:
   repo_prefix: <strong>[{{ repo_link(repository) }}]</strong>
   repo_sender_prefix: "{{ templates.repo_prefix }} {{ user_link(sender) }}"
   issue_link: "{{ issueish_link(issue) }}"
-  pr_link: "{{ issueish_link(pull_request) }}"
+  pr_link: "{{ issueish_link(pull_request, pull_request=True) }}"
   label_aggregation: >
     {% if aggregation.added_labels %}
       added {{ util.join_human_list(aggregation.added_labels, mutate=fancy_label) }}
@@ -135,7 +135,12 @@ messages:
     {% elif action == DEMILESTONED %}      removed {{ templates.pr_link }} from {{ milestone_link(milestone) }}
     {% elif action == ASSIGNED %}          assigned {{ user_link(assignee) }} to
     {% elif action == UNASSIGNED %}        unassigned {{ user_link(assignee) }} from
-    {% elif action == REVIEW_REQUESTED %}  requested a review from {{ user_link(requested_reviewer) }} for
+    {% elif action == REVIEW_REQUESTED %}
+      {% if requested_reviewer.id == sender.id %}
+        self-requested a review for
+      {% else %}
+        requested a review from {{ user_link(requested_reviewer) }} for
+      {% endif %}
     {% elif action == REVIEW_REQUEST_REMOVED %} removed the review request for {{ user_link(requested_reviewer) }} from
     {% elif action == READY_FOR_REVIEW %}  marked {{ templates.pr_link }} as ready for review
     {% else %}                             {{ action }}
