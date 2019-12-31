@@ -52,7 +52,7 @@ macros: >
     >&nbsp;{{ label.name }}&nbsp;</font>
   {%- endmacro -%}
 
-  {%- macro issueish_link(issue, pull_request = False) -%}
+  {%- macro issueish_link(issue, pull_request=False) -%}
     <a href="{{ issue.html_url }}">
       {{"pull request" if pull_request or issue.pull_request else "issue"}}
       #{{ issue.number -}}
@@ -63,12 +63,35 @@ macros: >
     <a href="{{ user.html_url }}">{{ (user.name or user.login)|e }}</a>
   {%- endmacro -%}
 
+  {%- macro commit_user_link(user) -%}
+    {% if user.username %}
+      <a href="https://github.com/{{ user.username }}">{{ user.name|e }}</a>
+    {% else %}
+      {{ user.name|e }}
+    {% endif %}
+  {%- endmacro -%}
+
   {%- macro milestone_link(milestone) -%}
     milestone <a href="{{ milestone.html_url }}">{{ milestone.title|e }}</a>
   {%- endmacro -%}
 
   {%- macro repo_link(repo) -%}
     <a href="{{ repo.html_url }}">{{ repo.full_name|e }}</a>
+  {%- endmacro -%}
+
+  {%- macro personal_link(user, self_text=None, possessive=False, self=sender) -%}
+    {% if user.id == self.id %}
+      {% if self_text %}
+        {{ self_text }}
+      {% elif possessive %}
+        their
+      {% else %}
+        themselves
+      {% endif %}
+    {% else %}
+      {{ user_link(user) }}
+      {%- if possessive %}'s{% endif %}
+    {% endif %}
   {%- endmacro -%}
 
 
@@ -133,15 +156,16 @@ messages:
     {% elif action == X_LABEL_AGGREGATE %} {{ templates.label_aggregation }}
     {% elif action == MILESTONED %}        added {{ templates.pr_link }} to {{ milestone_link(milestone) }}
     {% elif action == DEMILESTONED %}      removed {{ templates.pr_link }} from {{ milestone_link(milestone) }}
-    {% elif action == ASSIGNED %}          assigned {{ user_link(assignee) }} to
-    {% elif action == UNASSIGNED %}        unassigned {{ user_link(assignee) }} from
+    {% elif action == ASSIGNED %}          assigned {{ personal_link(requested_reviewer) }} to
+    {% elif action == UNASSIGNED %}        unassigned {{ personal_link(requested_reviewer) }} from
     {% elif action == REVIEW_REQUESTED %}
       {% if requested_reviewer.id == sender.id %}
         self-requested a review for
       {% else %}
         requested a review from {{ user_link(requested_reviewer) }} for
       {% endif %}
-    {% elif action == REVIEW_REQUEST_REMOVED %} removed the review request for {{ user_link(requested_reviewer) }} from
+    {% elif action == REVIEW_REQUEST_REMOVED %}
+      removed {{ personal_link(requested_reviewer, possessive=True) }} request for review from
     {% elif action == READY_FOR_REVIEW %}  marked {{ templates.pr_link }} as ready for review
     {% else %}                             {{ action }}
     {% endif %}
@@ -151,7 +175,7 @@ messages:
 
   pull_request_review: >
     {{ templates.repo_sender_prefix }}
-    {% if action == ReviewAction.SUBMITTED %}
+    {% if action == SUBMITTED %}
       <a href="{{ review.html_url }}">{{ review.state }}</a>
       {% if review.state == ReviewState.COMMENTED %} on {% endif %}
       {{ templates.pr_link }}
@@ -178,11 +202,7 @@ messages:
       <blockquote>{{ comment.body|markdown }}</blockquote>
     {% else %}
       {{ action }}
-      {% if comment.user.id == sender.id %}
-        their
-      {% else %}
-        {{ user_link(comment.user) }}'s
-      {% endif %}
+      {{ personal_link(comment.user, possessive=True) }}
       <a href="{{ comment.html_url }}">comment</a> on {{ templates.issue_link }}
     {% endif %}
 
@@ -201,7 +221,7 @@ messages:
         <code><a href="{{ commit.url }}">{{ commit.id[:8] }}</a></code>
         {{ util.cut_message(commit.message) }}
         {% if commit.author.username != sender.login %}
-          by {{ user_link(commit.author) }}
+          by {{ commit_user_link(commit.author) }}
         {% endif %}
       </li>
     {% endfor %}
