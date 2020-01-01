@@ -500,7 +500,6 @@ class CreateEvent(SerializableAttrs['CreateEvent']):
 class DeleteEvent(SerializableAttrs['DeleteEvent']):
     ref_type: str
     ref: str
-    master_branch: str
     pusher_type: str
     repository: Repository
     sender: User
