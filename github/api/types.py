@@ -205,6 +205,9 @@ class PushEvent(SerializableAttrs['PushEvent']):
     pusher: GitUser
     sender: User
 
+    size: int = None
+    distinct_size: int = None
+
 
 @dataclass
 class ReleaseAsset(SerializableAttrs['ReleaseAsset']):

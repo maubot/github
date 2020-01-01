@@ -214,12 +214,18 @@ class WebhookHandler:
         elif evt_type == EventType.META and evt.action == MetaAction.DELETED:
             self.log.debug(f"Received delete hook for {webhook_info}")
             self.bot.webhooks.delete(webhook_info.id)
-        elif evt_type == EventType.REPOSITORY and evt.action == RepositoryAction.TRANSFERRED:
-            self.log.debug(f"Received transfer hook {webhook_info} -> {evt.repository.full_name}")
-            self.bot.webhooks.transfer(webhook_info, evt.repository.full_name)
-        elif evt_type == EventType.REPOSITORY and evt.action == RepositoryAction.RENAMED:
-            self.log.debug(f"Received rename hook {webhook_info} -> {evt.repository.full_name}")
-            self.bot.webhooks.transfer(webhook_info, evt.repository.full_name)
+        elif evt_type == EventType.REPOSITORY:
+            if evt.action in (RepositoryAction.TRANSFERRED, RepositoryAction.RENAMED):
+                action = "transfer" if evt.action == RepositoryAction.TRANSFERRED else "rename"
+                name = evt.repository.full_name
+                self.log.debug(f"Received {action} hook {webhook_info} -> {name}")
+                self.bot.webhooks.transfer(webhook_info, name)
+            elif evt.action == RepositoryAction.DELETED:
+                self.log.debug(f"Received repo delete hook for {webhook_info}")
+                self.bot.webhooks.delete(webhook_info.id)
+        elif evt_type == EventType.PUSH and (evt.size is None or evt.distinct_size is None):
+            evt.size = len(evt.commits)
+            evt.distinct_size = len([commit for commit in evt.commits if commit.distinct])
 
         if PendingAggregation.timeout < 0:
             # Aggregations are disabled

@@ -45,11 +45,20 @@ templates:
 macros: >
   {%- macro fancy_label(label) -%}
     <font
-      {% set fg_color = util.contrast_fg(label.color) %}
-      data-mx-fg-color="#{{ fg_color }}" color="#{{ fg_color }}"
+      data-mx-color="#{{ util.contrast_fg(label.color) }}"
       data-mx-bg-color="#{{ label.color }}"
       title="{{ label.description }}"
     >&nbsp;{{ label.name }}&nbsp;</font>
+  {%- endmacro -%}
+
+  {%- macro fancy_labels(labels) -%}
+    {% for label in labels %}
+      {{ fancy_label(label) }}
+    {% endfor %}
+  {%- endmacro -%}
+
+  {%- macro pluralize(value) -%}
+    {% if value != 1 %}s{% endif %}
   {%- endmacro -%}
 
   {%- macro issueish_link(issue, pull_request=False) -%}
@@ -75,7 +84,7 @@ macros: >
     milestone <a href="{{ milestone.html_url }}">{{ milestone.title|e }}</a>
   {%- endmacro -%}
 
-  {%- macro repo_link(repo) -%}
+  {%- macro repo_link(repo, important=True) -%}
     <a href="{{ repo.html_url }}">{{ repo.full_name|e }}</a>
   {%- endmacro -%}
 
@@ -122,9 +131,7 @@ messages:
       {% if issue.body %}
         <blockquote>{{ issue.body|markdown }}</blockquote>
       {% endif %}
-      {% for label in issue.labels %}
-        {{ fancy_label(label) }}
-      {% endfor %}
+      {{ fancy_labels(issue.labels) }}
     {% elif action == LABELED %}           {% do abort() %}
     {% elif action == UNLABELED %}         {% do abort() %}
     {% elif action == X_LABEL_AGGREGATE %} {{ templates.label_aggregation }}
@@ -143,13 +150,11 @@ messages:
     {% if action == OPENED %}
       {% if pull_request.draft %}drafted
       {% else %}opened{% endif %}
-      {{ templates.pr_link }}
+      {{ templates.pr_link }}<br/>
       {% if pull_request.body %}
         <blockquote>{{ pull_request.body|markdown }}</blockquote>
       {% endif %}
-      {% for label in pull_request.labels %}
-        {{ fancy_label(label) }}
-      {% endfor %}
+      {{ fancy_labels(pull_request.labels) }}
     {% elif action == SYNCHRONIZE %}       {% do abort() %}
     {% elif action == LABELED %}           {% do abort() %}
     {% elif action == UNLABELED %}         {% do abort() %}
@@ -210,20 +215,30 @@ messages:
     {{ templates.repo_sender_prefix }}
     {% if forced %}force{% endif %}
     {% if deleted %}deleted {{ util.ref_type(ref) }}
-    {% else %}pushed to
+    {% else %}
+      pushed
+      {% if size == distinct_size %}
+        <a href="{{ compare }}">{{ size }} commit{{ pluralize(size) }}</a>
+      {% else %}
+        <a href="{{ compare }}">{{ distinct_size }} new commit{{ pluralize(distinct_size) }}</a>
+        (and {{ size - distinct_size }} existing commits)
+      {% endif %}
+      to
     {% endif %}
     {{ util.ref_name(ref) }}
     {%- if created %} (new {{ util.ref_type(ref) }}){% endif -%}
     {%- if commits|length > 0 %}:{% endif -%}
     <ul>
     {% for commit in commits %}
-      <li>
-        <code><a href="{{ commit.url }}">{{ commit.id[:8] }}</a></code>
-        {{ util.cut_message(commit.message) }}
-        {% if commit.author.username != sender.login %}
-          by {{ commit_user_link(commit.author) }}
-        {% endif %}
-      </li>
+      {% if commit.distinct %}
+        <li>
+          <code><a href="{{ commit.url }}">{{ commit.id[:8] }}</a></code>
+          {{ util.cut_message(commit.message) }}
+          {% if commit.author.username != sender.login %}
+            by {{ commit_user_link(commit.author) }}
+          {% endif %}
+        </li>
+      {% endif %}
     {% endfor %}
     </ul>
 
