@@ -1,5 +1,5 @@
 # github - A maubot plugin to act as a GitHub client and webhook receiver.
-# Copyright (C) 2019 Tulir Asokan
+# Copyright (C) 2020 Tulir Asokan
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -13,36 +13,15 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import NamedTuple, Dict, Tuple, Set, Callable, Deque, Type, Optional, Any, TYPE_CHECKING
-from collections import deque, defaultdict
-from uuid import UUID
+from typing import Dict, Tuple, Set, Callable, Type, Optional, Any, TYPE_CHECKING
 import asyncio
-import logging
-import re
 
-from jinja2 import TemplateNotFound
-import attr
-
-from mautrix.types import TextMessageEventContent, Format, MessageType, RoomID
-from mautrix.util.formatter import parse_html
-
-from .webhook_manager import WebhookInfo
-from .template import TemplateManager, TemplateUtil
-from .api.types import (Event, EventType, Action, IssueAction, PullRequestAction, MetaAction,
-                        CommentAction, RepositoryAction, EVENT_ARGS, OTHER_ENUMS)
+from .manager import WebhookInfo
+from github.api.types import (Event, EventType, Action, IssueAction, PullRequestAction,
+                              CommentAction, ACTION_CLASSES)
 
 if TYPE_CHECKING:
-    from .bot import GitHubBot
-
-
-class WebhookMessageInfo(NamedTuple):
-    room_id: RoomID
-    delivery_id: str
-    event: Event
-
-
-spaces = re.compile(" +")
-space = " "
+    from .handler import WebhookHandler
 
 
 class PendingAggregation:
@@ -99,12 +78,8 @@ class PendingAggregation:
         self.aggregation = {}
         self.delivery_ids = {delivery_id}
         self.postpone = asyncio.Event()
-        if self.event_type == EventType.ISSUES:
-            self.action_type = IssueAction
-        elif self.event_type == EventType.PULL_REQUEST:
-            self.action_type = PullRequestAction
-        # TODO remaining action types
-        elif not hasattr(self.event, "action"):
+        self.action_type = ACTION_CLASSES.get(evt_type)
+        if not hasattr(self.event, "action"):
             self.event.action = None
 
     async def start(self) -> None:
@@ -181,90 +156,3 @@ class PendingAggregation:
         self.delivery_ids.add(delivery_id)
         self.postpone.set()
         return True
-
-
-class WebhookHandler:
-    log: logging.Logger
-    bot: 'GitHubBot'
-    msgtype: MessageType
-    messages: TemplateManager
-    templates: TemplateManager
-    pending_aggregations: Dict[UUID, Deque[PendingAggregation]]
-
-    def __init__(self, bot: 'GitHubBot') -> None:
-        self.bot = bot
-        self.log = self.bot.log.getChild("webhook")
-        self.msgtype = MessageType(bot.config["message_options.msgtype"]) or MessageType.NOTICE
-        PendingAggregation.timeout = int(bot.config["message_options.aggregation_timeout"])
-        self.messages = TemplateManager(self.bot.config, "messages")
-        self.templates = TemplateManager(self.bot.config, "templates")
-        self.pending_aggregations = defaultdict(lambda: deque())
-
-    def reload_config(self) -> None:
-        self.messages.reload()
-        self.templates.reload()
-        self.msgtype = MessageType(self.bot.config["message_options.msgtype"]) or MessageType.NOTICE
-        PendingAggregation.timeout = int(self.bot.config["message_options.aggregation_timeout"])
-
-    async def __call__(self, evt_type: EventType, evt: Event, delivery_id: str,
-                       webhook_info: WebhookInfo) -> None:
-        if evt_type == EventType.PING:
-            self.log.debug(f"Received ping for {webhook_info}: {evt.zen}")
-            self.bot.webhooks.set_github_id(webhook_info, evt.hook_id)
-        elif evt_type == EventType.META and evt.action == MetaAction.DELETED:
-            self.log.debug(f"Received delete hook for {webhook_info}")
-            self.bot.webhooks.delete(webhook_info.id)
-        elif evt_type == EventType.REPOSITORY:
-            if evt.action in (RepositoryAction.TRANSFERRED, RepositoryAction.RENAMED):
-                action = "transfer" if evt.action == RepositoryAction.TRANSFERRED else "rename"
-                name = evt.repository.full_name
-                self.log.debug(f"Received {action} hook {webhook_info} -> {name}")
-                self.bot.webhooks.transfer(webhook_info, name)
-            elif evt.action == RepositoryAction.DELETED:
-                self.log.debug(f"Received repo delete hook for {webhook_info}")
-                self.bot.webhooks.delete(webhook_info.id)
-        elif evt_type == EventType.PUSH and (evt.size is None or evt.distinct_size is None):
-            evt.size = len(evt.commits)
-            evt.distinct_size = len([commit for commit in evt.commits if commit.distinct])
-
-        if PendingAggregation.timeout < 0:
-            # Aggregations are disabled
-            await self.send_message(evt_type, evt, webhook_info.room_id, {delivery_id})
-
-        for pending in self.pending_aggregations[webhook_info.id]:
-            if pending.aggregate(evt_type, evt, delivery_id):
-                return
-        asyncio.ensure_future(PendingAggregation(self, evt_type, evt, delivery_id, webhook_info)
-                              .start())
-
-    async def send_message(self, evt_type: EventType, evt: Event, room_id: RoomID,
-                           delivery_ids: Set[str], aggregation: Optional[Dict[str, Any]] = None
-                           ) -> None:
-        try:
-            tpl = self.messages[str(evt_type)]
-        except TemplateNotFound:
-            self.log.debug(f"Unhandled event of type {evt_type} -- {delivery_ids}")
-            return
-        aborted = False
-
-        def abort() -> None:
-            nonlocal aborted
-            aborted = True
-
-        args = {
-            **attr.asdict(evt, recurse=False),
-            **EVENT_ARGS.get(evt_type, {}),
-            **OTHER_ENUMS,
-            "util": TemplateUtil,
-            "abort": abort,
-            "aggregation": aggregation,
-        }
-        args["templates"] = self.templates.proxy(args)
-        content = TextMessageEventContent(msgtype=self.msgtype, format=Format.HTML,
-                                          formatted_body=tpl.render(**args))
-        if not content.formatted_body or aborted:
-            return
-        content.formatted_body = spaces.sub(space, content.formatted_body.strip())
-        content.body = parse_html(content.formatted_body)
-        content["xyz.maubot.github.delivery_ids"] = list(delivery_ids)
-        await self.bot.client.send_message(room_id, content)

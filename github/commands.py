@@ -1,5 +1,5 @@
 # github - A maubot plugin to act as a GitHub client and webhook receiver.
-# Copyright (C) 2019 Tulir Asokan
+# Copyright (C) 2020 Tulir Asokan
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -134,7 +134,7 @@ class Commands:
 
     @webhook.subcommand("list", aliases=["ls", "l"], help="List webhooks in this room.")
     async def webhook_list(self, evt: MessageEvent) -> None:
-        hooks = self.bot.webhooks.get_all_for_room(evt.room_id)
+        hooks = self.bot.webhook_manager.get_all_for_room(evt.room_id)
         info = "\n".join(f"* `{hook.repo}` added by "
                          f"[{hook.user_id}](https://matrix.to/#/{hook.user_id})"
                          for hook in hooks)
@@ -146,12 +146,12 @@ class Commands:
     async def webhook_create(self, evt: MessageEvent, repo: Tuple[str, str], client: GitHubClient
                              ) -> None:
         repo_name = f"{repo[0]}/{repo[1]}"
-        existing = self.bot.webhooks.find(repo_name, evt.room_id)
+        existing = self.bot.webhook_manager.find(repo_name, evt.room_id)
         if existing:
             await evt.reply("This room already has a webhook for that repo")
             # TODO webhook may be deleted on github side
             return
-        webhook = self.bot.webhooks.create(repo_name, evt.sender, evt.room_id)
+        webhook = self.bot.webhook_manager.create(repo_name, evt.sender, evt.room_id)
         await client.create_webhook(*repo, url=self.bot.webapp_url / "webhook" / str(webhook.id),
                                     secret=webhook.secret, content_type="json", events=["*"])
         await evt.reply(f"Successfully created webhook for {repo_name}")
@@ -162,11 +162,11 @@ class Commands:
     async def webhook_remove(self, evt: MessageEvent, repo: Tuple[str, str],
                              client: Optional[GitHubClient]) -> None:
         repo_name = f"{repo[0]}/{repo[1]}"
-        webhook_info = self.bot.webhooks.find(repo_name, evt.room_id)
+        webhook_info = self.bot.webhook_manager.find(repo_name, evt.room_id)
         if not webhook_info:
             await evt.reply("This room does not have a webhook for that repo")
             return
-        self.bot.webhooks.delete(webhook_info.id)
+        self.bot.webhook_manager.delete(webhook_info.id)
         if webhook_info.github_id:
             if client:
                 try:

@@ -1,3 +1,4 @@
+# Based on https://docs.sqlalchemy.org/en/13/core/custom_types.html#backend-agnostic-guid-type
 from typing import Union, Optional, Type, Any
 
 from sqlalchemy import types

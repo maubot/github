@@ -1,5 +1,5 @@
 # github - A maubot plugin to act as a GitHub client and webhook receiver.
-# Copyright (C) 2019 Tulir Asokan
+# Copyright (C) 2020 Tulir Asokan
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -13,7 +13,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Dict, Optional, Any, Generator
+from typing import Dict, Union, Optional, Any, Generator
 from uuid import UUID, uuid4
 import hashlib
 import hmac
@@ -23,7 +23,7 @@ from sqlalchemy.engine.base import Engine
 
 from mautrix.types import UserID, RoomID
 
-from .util import UUIDType
+from ..util import UUIDType
 
 
 class WebhookInfo:
@@ -147,7 +147,9 @@ class WebhookManager:
     def __delitem__(self, key: UUID) -> None:
         self.delete(key)
 
-    def __getitem__(self, item: UUID) -> WebhookInfo:
+    def __getitem__(self, item: Union[str, UUID]) -> WebhookInfo:
+        if not isinstance(item, UUID):
+            item = UUID(item)
         value = self.get(item)
         if not value:
             raise KeyError(item)

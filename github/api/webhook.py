@@ -1,5 +1,5 @@
 # github - A maubot plugin to act as a GitHub client and webhook receiver.
-# Copyright (C) 2019 Tulir Asokan
+# Copyright (C) 2020 Tulir Asokan
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -13,37 +13,46 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import TYPE_CHECKING
+from typing import Protocol
 import hashlib
 import hmac
 import json
-import uuid
 
 from aiohttp import web
 
 from mautrix.types import SerializerError
 from maubot.handlers import web as web_handler
 
-from ..api.types import EventType, EVENT_CLASSES
+from .types import EventType, Event, EVENT_CLASSES
 
 
-if TYPE_CHECKING:
-    from ..webhook_manager import WebhookManager
-    from ..webhook_handler import WebhookHandler
+class WebhookInfo(Protocol):
+    secret: str
+
+
+class HandlerFunc(Protocol):
+    async def __call__(self, evt_type: EventType, evt: Event, delivery_id: str,
+                       info: WebhookInfo) -> None:
+        pass
+
+
+class SecretDict(Protocol):
+    def __getitem__(self, item: str) -> WebhookInfo:
+        pass
 
 
 class GitHubWebhookReceiver:
-    handler: 'WebhookHandler'
-    secrets: 'WebhookManager'
+    handler: HandlerFunc
+    secrets: SecretDict
 
-    def __init__(self, handler: 'WebhookHandler', secrets: 'WebhookManager') -> None:
+    def __init__(self, handler: HandlerFunc, secrets: SecretDict) -> None:
         self.handler = handler
         self.secrets = secrets
 
     @web_handler.post("/webhook/{id}")
     async def handle(self, request: web.Request) -> web.Response:
         try:
-            webhook_info = self.secrets[uuid.UUID(request.match_info["id"])]
+            webhook_info = self.secrets[request.match_info["id"]]
         except (ValueError, KeyError):
             return web.Response(status=404, text="Webhook not found")
         try:
@@ -74,8 +83,7 @@ class GitHubWebhookReceiver:
             event = type_class.deserialize(data)
         except SerializerError:
             return web.Response(status=500, text="Failed to parse event content")
-        resp = await self.handler(event_type, event,
-                                  delivery_id=delivery_id, webhook_info=webhook_info)
+        resp = await self.handler(event_type, event, delivery_id, webhook_info)
         if not isinstance(resp, web.Response):
             resp = web.Response(status=200)
         return resp

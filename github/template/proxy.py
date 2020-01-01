@@ -13,13 +13,22 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Any, Dict
+from typing import Dict, Any
 
-from mautrix.util.config import RecursiveDict
+from jinja2 import Environment as JinjaEnvironment, TemplateNotFound
 
 
-def recursive_get(data: Dict[str, Any], key: str) -> Any:
-    key, next_key = RecursiveDict.parse_key(key)
-    if next_key is not None:
-        return recursive_get(data[key], next_key)
-    return data[key]
+class TemplateProxy:
+    _env: JinjaEnvironment
+    _args: Dict[str, Any]
+
+    def __init__(self, env: JinjaEnvironment, args: Dict[str, Any]) -> None:
+        self._env = env
+        self._args = args
+
+    def __getattr__(self, item: str) -> str:
+        try:
+            tpl = self._env.get_template(item)
+        except TemplateNotFound:
+            raise AttributeError(item)
+        return tpl.render(**self._args)

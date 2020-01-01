@@ -1,5 +1,5 @@
 # github - A maubot plugin to act as a GitHub client and webhook receiver.
-# Copyright (C) 2019 Tulir Asokan
+# Copyright (C) 2020 Tulir Asokan
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -17,12 +17,9 @@ from typing import Type
 
 from sqlalchemy import MetaData
 
-from mautrix.types import MessageType
-
 from maubot import Plugin
 
-from .webhook_manager import WebhookManager
-from .webhook_handler import WebhookHandler
+from .webhook import WebhookManager, WebhookHandler
 from .client_manager import ClientManager
 from .api import GitHubWebhookReceiver
 from .commands import Commands
@@ -31,7 +28,7 @@ from .config import Config
 
 class GitHubBot(Plugin):
     webhook_receiver: GitHubWebhookReceiver
-    webhooks: WebhookManager
+    webhook_manager: WebhookManager
     webhook_handler: WebhookHandler
     clients: ClientManager
     commands: Commands
@@ -44,11 +41,11 @@ class GitHubBot(Plugin):
 
         self.clients = ClientManager(self.config["client_id"], self.config["client_secret"],
                                      self.http, self.database, metadata)
-        self.webhooks = WebhookManager(self.config["webhook_key"],
-                                       self.database, metadata)
+        self.webhook_manager = WebhookManager(self.config["webhook_key"],
+                                              self.database, metadata)
         self.webhook_handler = WebhookHandler(bot=self)
         self.webhook_receiver = GitHubWebhookReceiver(handler=self.webhook_handler,
-                                                      secrets=self.webhooks)
+                                                      secrets=self.webhook_manager)
         self.commands = Commands(bot=self)
 
         metadata.create_all(self.database)

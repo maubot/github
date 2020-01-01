@@ -1,5 +1,5 @@
 # github - A maubot plugin to act as a GitHub client and webhook receiver.
-# Copyright (C) 2019 Tulir Asokan
+# Copyright (C) 2020 Tulir Asokan
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -496,6 +496,16 @@ class CreateEvent(SerializableAttrs['CreateEvent']):
     sender: User
 
 
+@dataclass
+class DeleteEvent(SerializableAttrs['DeleteEvent']):
+    ref_type: str
+    ref: str
+    master_branch: str
+    pusher_type: str
+    repository: Repository
+    sender: User
+
+
 class MetaAction(SerializableEnum):
     DELETED = 'deleted'
 
@@ -853,6 +863,7 @@ class EventType(SerializableEnum):
     PING = "ping"
     FORK = "fork"
     CREATE = "create"
+    DELETE = "delete"
     META = "meta"
     COMMIT_COMMENT = "commit_comment"
     MILESTONE = "milestone"
@@ -868,7 +879,7 @@ class EventType(SerializableEnum):
 Event = Union[IssuesEvent, IssueCommentEvent, PushEvent, ReleaseEvent, StarEvent, WatchEvent,
               PingEvent, ForkEvent, CreateEvent, MetaEvent, CommitCommentEvent, MilestoneEvent,
               LabelEvent, WikiEvent, PublicEvent, PullRequestEvent, PullRequestReviewEvent,
-              PullRequestReviewCommentEvent, RepositoryEvent]
+              PullRequestReviewCommentEvent, RepositoryEvent, DeleteEvent]
 
 Action = Union[IssueAction, StarAction, CommentAction, WikiPageAction, MetaAction, ReleaseAction,
                PullRequestAction, PullRequestReviewAction, PullRequestReviewCommentAction,
@@ -884,6 +895,7 @@ EVENT_CLASSES = {
     EventType.PING: PingEvent,
     EventType.FORK: ForkEvent,
     EventType.CREATE: CreateEvent,
+    EventType.DELETE: DeleteEvent,
     EventType.META: MetaEvent,
     EventType.COMMIT_COMMENT: CommitCommentEvent,
     EventType.MILESTONE: MilestoneEvent,
@@ -898,23 +910,25 @@ EVENT_CLASSES = {
 
 
 def expand_enum(enum: Type[SerializableEnum]) -> Dict[str, SerializableEnum]:
+    if not enum:
+        return {}
     return {field.name: field for field in enum}
 
 
-EVENT_ARGS = {
-    EventType.ISSUES: expand_enum(IssueAction),
-    EventType.STAR: expand_enum(StarAction),
-    EventType.COMMIT_COMMENT: expand_enum(CommentAction),
-    EventType.ISSUE_COMMENT: expand_enum(CommentAction),
-    EventType.PULL_REQUEST: expand_enum(PullRequestAction),
-    EventType.PULL_REQUEST_REVIEW: expand_enum(PullRequestReviewAction),
-    EventType.PULL_REQUEST_REVIEW_COMMENT: expand_enum(PullRequestReviewCommentAction),
-    EventType.WIKI: expand_enum(WikiPageAction),
-    EventType.META: expand_enum(MetaAction),
-    EventType.RELEASE: expand_enum(ReleaseAction),
-    EventType.MILESTONE: expand_enum(MilestoneAction),
-    EventType.LABEL: expand_enum(LabelAction),
-    EventType.REPOSITORY: expand_enum(RepositoryAction),
+ACTION_CLASSES = {
+    EventType.ISSUES: IssueAction,
+    EventType.STAR: StarAction,
+    EventType.COMMIT_COMMENT: CommentAction,
+    EventType.ISSUE_COMMENT: CommentAction,
+    EventType.PULL_REQUEST: PullRequestAction,
+    EventType.PULL_REQUEST_REVIEW: PullRequestReviewAction,
+    EventType.PULL_REQUEST_REVIEW_COMMENT: PullRequestReviewCommentAction,
+    EventType.WIKI: WikiPageAction,
+    EventType.META: MetaAction,
+    EventType.RELEASE: ReleaseAction,
+    EventType.MILESTONE: MilestoneAction,
+    EventType.LABEL: LabelAction,
+    EventType.REPOSITORY: RepositoryAction,
 }
 
 OTHER_ENUMS = {
