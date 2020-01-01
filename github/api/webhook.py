@@ -13,7 +13,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Protocol
+from typing import TYPE_CHECKING
 import hashlib
 import hmac
 import json
@@ -25,27 +25,31 @@ from maubot.handlers import web as web_handler
 
 from .types import EventType, Event, EVENT_CLASSES
 
-
-class WebhookInfo(Protocol):
-    secret: str
-
-
-class HandlerFunc(Protocol):
-    async def __call__(self, evt_type: EventType, evt: Event, delivery_id: str,
-                       info: WebhookInfo) -> None:
-        pass
+if TYPE_CHECKING:
+    # Python 3.8+ only, so we do this in TYPE_CHECKING only
+    from typing import Protocol
 
 
-class SecretDict(Protocol):
-    def __getitem__(self, item: str) -> WebhookInfo:
-        pass
+    class WebhookInfo(Protocol):
+        secret: str
+
+
+    class HandlerFunc(Protocol):
+        async def __call__(self, evt_type: EventType, evt: Event, delivery_id: str,
+                           info: WebhookInfo) -> None:
+            pass
+
+
+    class SecretDict(Protocol):
+        def __getitem__(self, item: str) -> WebhookInfo:
+            pass
 
 
 class GitHubWebhookReceiver:
-    handler: HandlerFunc
-    secrets: SecretDict
+    handler: 'HandlerFunc'
+    secrets: 'SecretDict'
 
-    def __init__(self, handler: HandlerFunc, secrets: SecretDict) -> None:
+    def __init__(self, handler: 'HandlerFunc', secrets: 'SecretDict') -> None:
         self.handler = handler
         self.secrets = secrets
 
