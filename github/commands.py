@@ -13,12 +13,12 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Tuple, Optional, Set, TYPE_CHECKING
+from typing import Tuple, Optional, Set, Dict, Any, TYPE_CHECKING
 import json
 
 from maubot import MessageEvent
 from maubot.handlers import command, event
-from mautrix.types import EventType
+from mautrix.types import EventType, Event, ReactionEvent, RelationType
 
 from .api import GitHubClient, GitHubError
 
@@ -26,12 +26,14 @@ if TYPE_CHECKING:
     from .bot import GitHubBot
 
 
-def authenticated(_outer_fn=None, *, required: bool = True):
+def authenticated(_outer_fn=None, *, required: bool = True, error: bool = True):
     def decorator(fn):
-        async def wrapper(self: 'Commands', evt: MessageEvent, **kwargs):
+        async def wrapper(self: 'Commands', evt: Event, **kwargs) -> None:
             client = self.bot.clients.get(evt.sender)
             if required and (not client or not client.token):
-                return await evt.reply("You're not logged in. Log in with `!github login` first.")
+                if error and hasattr(evt, "reply"):
+                    await evt.reply("You're not logged in. Log in with `!github login` first.")
+                return
             elif client and not client.token:
                 client = None
             return await fn(self, evt, **kwargs, client=client)
@@ -39,6 +41,31 @@ def authenticated(_outer_fn=None, *, required: bool = True):
         return wrapper
 
     return decorator(_outer_fn) if _outer_fn else decorator
+
+
+async def get_relation_target(evt: Event, expected_type: RelationType) -> Optional[Dict[str, Any]]:
+    if evt.content.relates_to.rel_type != expected_type:
+        return None
+    orig_evt = await evt.client.get_event(evt.room_id, evt.content.relates_to.event_id)
+    if orig_evt.sender != evt.client.mxid or orig_evt.type != EventType.ROOM_MESSAGE:
+        return None
+    try:
+        return orig_evt.content["xyz.maubot.github.webhook"]
+    except KeyError:
+        return None
+
+
+def with_webhook_meta(relation_type: RelationType):
+    def decorator(fn):
+        async def wrapper(self: 'Commands', evt: Event, **kwargs) -> None:
+            webhook_meta = await get_relation_target(evt, relation_type)
+            if not webhook_meta:
+                return
+            await fn(self, evt, **kwargs, webhook_meta=webhook_meta)
+
+        return wrapper
+
+    return decorator
 
 
 repo_syntax = r"([A-Za-z0-9-_]+)/([A-Za-z0-9-_]+)"
@@ -87,26 +114,52 @@ class Commands:
             await evt.reply(f"[Click here to log in]({login_url})")
 
     @event.on(EventType.ROOM_MESSAGE)
-    @authenticated(required=False)
-    async def handle_message(self, evt: MessageEvent, client: Optional[GitHubClient]) -> None:
-        if not client or not evt.content.get_reply_to():
-            return
-        reply: MessageEvent = await evt.client.get_event(evt.room_id, evt.content.get_reply_to())
-        if reply.sender != evt.client.mxid or reply.type != EventType.ROOM_MESSAGE:
-            return
+    @authenticated(error=False)
+    @with_webhook_meta(RelationType.REFERENCE)
+    async def handle_message(self, evt: MessageEvent, client: GitHubClient,
+                             webhook_meta: Dict[str, Any]) -> None:
         try:
-            webhook_meta = reply.content["xyz.maubot.github.webhook"]
+            full_action = (webhook_meta["event_type"], webhook_meta["action"])
+        except KeyError:
+            return
+        commentable_actions = (("issues", "opened"), ("issue_comment", "created"))
+        if full_action in commentable_actions:
+            await client.mutate(query="addComment(input: $input) { clientMutationId }",
+                                args="$input: AddCommentInput!",
+                                variables={"input": {
+                                    "subjectId": webhook_meta["issue"]["node_id"],
+                                    "body": evt.content.body,
+                                }})
+            # We don't need a confirmation here since there must be a webhook.
+
+    @event.on(EventType.REACTION)
+    @authenticated(error=False)
+    @with_webhook_meta(RelationType.ANNOTATION)
+    async def handle_reaction(self, evt: ReactionEvent, client: GitHubClient,
+                              webhook_meta: Dict[str, Any]) -> None:
+        reaction_map = {
+            "👍": "THUMBS_UP",
+            "👎": "THUMBS_DOWN",
+            "😄": "LAUGH",
+            "🎉": "HOORAY",
+            "😕": "CONFUSED",
+            "❤️": "HEART",
+            "🚀": "ROCKET",
+            "👀": "EYES",
+        }
+        try:
+            reaction = reaction_map[evt.content.relates_to.key]
         except KeyError:
             return
         if webhook_meta["event_type"] == "issues" and webhook_meta["action"] == "opened":
-            url = await client.mutate(query="addComment(input: $input) { commentEdge { node { url } } }",
-                                      args="$input: AddCommentInput!",
-                                      variables={"input": {
-                                          "subjectId": webhook_meta["issue"]["node_id"],
-                                          "body": evt.content.body,
-                                      }},
-                                      path="addComment.commentEdge.node.url")
-            await evt.respond(f"Added [comment]({url})")
+            subject_id = webhook_meta["issue"]["node_id"]
+        elif webhook_meta["event_type"] == "issue_comment" and webhook_meta["action"] == "created":
+            subject_id = webhook_meta["comment"]["node_id"]
+        else:
+            return
+        await client.mutate(query="addReaction(input: $input) { clientMutationId }",
+                            args="$input: AddReactionInput!",
+                            variables={"input": {"content": reaction, "subjectId": subject_id}})
 
     @github.subcommand("ping", help="Check your login status.")
     @authenticated

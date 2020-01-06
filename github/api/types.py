@@ -452,6 +452,12 @@ class IssueComment(SerializableAttrs['IssueComment']):
     created_at: HubDateTime
     updated_at: Optional[HubDateTime]
 
+    def meta(self) -> Dict[str, Any]:
+        return {
+            "id": self.id ,
+            "node_id": self.node_id,
+        }
+
 
 class CommentAction(SerializableEnum):
     CREATED = "created"
@@ -466,6 +472,14 @@ class IssueCommentEvent(SerializableAttrs['IssueCommentEvent']):
     comment: IssueComment
     repository: Repository
     sender: User
+
+    def meta(self) -> Dict[str, Any]:
+        return {
+            "issue": self.issue.meta(),
+            "comment": self.comment.meta(),
+            "repository": self.repository.meta(),
+            "action": str(self.action),
+        }
 
 
 @dataclass
@@ -557,13 +571,27 @@ class CommitComment(SerializableAttrs['CommitComment']):
     created_at: HubDateTime
     updated_at: Optional[HubDateTime]
 
+    def meta(self) -> Dict[str, Any]:
+        return {
+            "id": self.id ,
+            "node_id": self.node_id,
+            "commit_id": self.commit_id,
+        }
+
 
 @dataclass
 class CommitCommentEvent(SerializableAttrs['CommitCommentEvent']):
     action: CommentAction
-    comment: IssueComment
+    comment: CommitComment
     repository: Repository
     sender: User
+
+    def meta(self) -> Dict[str, Any]:
+        return {
+            "comment": self.comment.meta(),
+            "repository": self.repository.meta(),
+            "action": str(self.action),
+        }
 
 
 @dataclass
@@ -718,6 +746,13 @@ class PartialPullRequest(SerializableAttrs['PartialPullRequest']):
     comments_url: str
     statuses_url: str
 
+    def meta(self) -> Dict[str, Any]:
+        return {
+            "id": self.id ,
+            "node_id": self.node_id,
+            "number": self.number,
+        }
+
 
 @dataclass
 class PullRequest(PartialPullRequest, SerializableAttrs['PullRequest']):
@@ -839,6 +874,14 @@ class ReviewComment(SerializableAttrs['ReviewComment']):
     created_at: HubDateTime
     updated_at: Optional[HubDateTime]
 
+    def meta(self) -> Dict[str, Any]:
+        return {
+            "id": self.id ,
+            "node_id": self.node_id,
+            "pull_request_review_id": self.pull_request_review_id,
+            "commit_id": self.commit_id,
+        }
+
 
 @dataclass
 class PullRequestReviewCommentEvent(SerializableAttrs['PullRequestReviewCommentEvent']):
@@ -848,6 +891,14 @@ class PullRequestReviewCommentEvent(SerializableAttrs['PullRequestReviewCommentE
     repository: Repository
     sender: User
     changes: Optional[ReviewChanges] = None
+
+    def meta(self) -> Dict[str, Any]:
+        return {
+            "pull_request": self.pull_request.meta(),
+            "comment": self.comment.meta(),
+            "repository": self.repository.meta(),
+            "action": str(self.action),
+        }
 
 
 class RepositoryAction(SerializableEnum):
