@@ -17,7 +17,8 @@ from typing import Tuple, Optional, Set, TYPE_CHECKING
 import json
 
 from maubot import MessageEvent
-from maubot.handlers import command
+from maubot.handlers import command, event
+from mautrix.types import EventType
 
 from .api import GitHubClient, GitHubError
 
@@ -31,6 +32,8 @@ def authenticated(_outer_fn=None, *, required: bool = True):
             client = self.bot.clients.get(evt.sender)
             if required and (not client or not client.token):
                 return await evt.reply("You're not logged in. Log in with `!github login` first.")
+            elif client and not client.token:
+                client = None
             return await fn(self, evt, **kwargs, client=client)
 
         return wrapper
@@ -70,19 +73,44 @@ class Commands:
         pass
 
     @github.subcommand("login", help="Log into GitHub.")
-    async def login(self, evt: MessageEvent) -> None:
+    @authenticated(required=False)
+    async def login(self, evt: MessageEvent, client: Optional[GitHubClient]) -> None:
         redirect_url = (self.bot.webapp_url / "auth").with_query({"user_id": evt.sender})
         login_url = str(self.bot.clients.get(evt.sender, create=True).get_login_url(
             redirect_uri=redirect_url,
             scope="user:user public_repo repo admin:repo_hook"))
-        await evt.reply(f"[Click here to log in]({login_url})")
+        if client:
+            username = await client.query("viewer { login }", path="viewer.login")
+            await evt.reply(f"You're already logged in as @{username}, but you can "
+                            f"[click here to switch to a different account]({login_url})")
+        else:
+            await evt.reply(f"[Click here to log in]({login_url})")
+
+    @event.on(EventType.ROOM_MESSAGE)
+    @authenticated(required=False)
+    async def handle_message(self, evt: MessageEvent, client: Optional[GitHubClient]) -> None:
+        if not client or not evt.content.get_reply_to():
+            return
+        reply: MessageEvent = await evt.client.get_event(evt.room_id, evt.content.get_reply_to())
+        if reply.sender != evt.client.mxid or reply.type != EventType.ROOM_MESSAGE:
+            return
+        try:
+            webhook_meta = reply.content["xyz.maubot.github.webhook"]
+        except KeyError:
+            return
+        if webhook_meta["event_type"] == "issues" and webhook_meta["action"] == "opened":
+            url = await client.mutate(query="addComment(input: $input) { commentEdge { node { url } } }",
+                                      args="$input: AddCommentInput!",
+                                      variables={"input": {
+                                          "subjectId": webhook_meta["issue"]["node_id"],
+                                          "body": evt.content.body,
+                                      }},
+                                      path="addComment.commentEdge.node.url")
+            await evt.respond(f"Added [comment]({url})")
 
     @github.subcommand("ping", help="Check your login status.")
-    async def ping(self, evt: MessageEvent) -> None:
-        client = self.bot.clients.get(evt.sender)
-        if not client or not client.token:
-            await evt.reply("You're not logged in. Log in with `!github login` first.")
-            return
+    @authenticated
+    async def ping(self, evt: MessageEvent, client: GitHubClient) -> None:
         username = await client.query("viewer { login }", path="viewer.login")
         await evt.reply(f"You're logged in as @{username}")
 

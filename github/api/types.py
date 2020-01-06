@@ -13,7 +13,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Optional, NewType, List, Union, Type, Dict
+from typing import Optional, NewType, List, Union, Type, Dict, Any
 from datetime import datetime
 
 from attr import dataclass
@@ -171,6 +171,13 @@ class Repository(SerializableAttrs['Repository']):
     archived: bool
     disabled: bool
     default_branch: str
+
+    def meta(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "node_id": self.node_id,
+            "name": self.full_name,
+        }
 
 
 @dataclass
@@ -375,6 +382,13 @@ class Issue(SerializableAttrs['Issue']):
 
     pull_request: Optional[IssuePullURLs] = None
 
+    def meta(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "node_id": self.node_id,
+            "number": self.number,
+        }
+
 
 class IssueAction(SerializableEnum):
     OPENED = "opened"
@@ -418,6 +432,13 @@ class IssuesEvent(SerializableAttrs['IssuesEvent']):
     label: Optional[Label] = None
     milestone: Optional[Milestone] = None
     changes: Optional[JSON] = None
+
+    def meta(self) -> Dict[str, Any]:
+        return {
+            "issue": self.issue.meta(),
+            "repository": self.repository.meta(),
+            "action": str(self.action),
+        }
 
 
 @dataclass

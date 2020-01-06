@@ -13,7 +13,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Dict, Set, Deque, Optional, Any, TYPE_CHECKING
+from typing import Dict, Set, Deque, Optional, Any, Callable, TYPE_CHECKING
 from collections import deque, defaultdict
 from uuid import UUID
 import asyncio
@@ -124,5 +124,9 @@ class WebhookHandler:
             return
         content.formatted_body = spaces.sub(space, content.formatted_body.strip())
         content.body = parse_html(content.formatted_body)
-        content["xyz.maubot.github.delivery_ids"] = list(delivery_ids)
+        content["xyz.maubot.github.webhook"] = {
+            "delivery_ids": list(delivery_ids),
+            "event_type": str(evt_type),
+            **(evt.meta() if hasattr(evt, "meta") else {}),
+        }
         await self.bot.client.send_message(room_id, content)
