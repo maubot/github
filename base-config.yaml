@@ -266,9 +266,9 @@ messages:
 
         {% set created, edited = [], [] %}
         {% for page in pages %}
-            {% if page.action == WikiPageAction.CREATED %}
+            {% if page.action == CREATED %}
                 {% do created.append(page_link(page)) %}
-            {% elif page.action == WikiPageAction.EDITED %}
+            {% elif page.action == EDITED %}
                 {% do edited.append(page_link(page)) %}
             {% endif %}
         {% endfor %}
