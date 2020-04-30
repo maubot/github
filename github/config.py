@@ -28,6 +28,7 @@ class Config(BaseProxyConfig):
         helper.base["webhook_key"] = ("".join(random.choices(secret_charset, k=64))
                                       if helper.source.get("webhook_key", "generate") == "generate"
                                       else helper.source["webhook_key"])
+        helper.copy("global_webhook_secret")
         helper.copy("command_options.prefix")
         helper.copy("message_options.msgtype")
         helper.copy("message_options.aggregation_timeout")

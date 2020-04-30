@@ -45,7 +45,8 @@ class GitHubBot(Plugin):
                                               self.database, metadata)
         self.webhook_handler = WebhookHandler(bot=self)
         self.webhook_receiver = GitHubWebhookReceiver(handler=self.webhook_handler,
-                                                      secrets=self.webhook_manager)
+                                                      secrets=self.webhook_manager,
+                                                      global_secret=self.config["global_webhook_secret"])
         self.commands = Commands(bot=self)
 
         metadata.create_all(self.database)
