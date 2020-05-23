@@ -1,6 +1,12 @@
 # github
 A GitHub client and webhook receiver for maubot.
 
+## Hosted instance
+You can use the instance hosted on maunium.net by talking to
+[@github:maunium.net](https://matrix.to/#/@github:maunium.net).
+
+See steps 4 and 5 below.
+
 ## Basic setup
 1. **Set up the plugin like any other maubot plugin.**
 
