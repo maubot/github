@@ -31,11 +31,12 @@ class TemplateUtil:
                 else cls.black_hex)
 
     @staticmethod
-    def cut_message(message: str, max_len: int = 50) -> str:
+    def cut_message(message: str, max_len: int = 72) -> str:
         if "\n" in message:
             message = message.split("\n")[0]
             if len(message) <= max_len:
                 message += " […]"
+                return message
         if len(message) > max_len:
             message = message[:max_len] + "…"
         return message
