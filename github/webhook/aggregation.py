@@ -44,10 +44,18 @@ class PendingAggregation:
                        else self.event.pull_request)
         self._label_ids = {label.id for label in event_field.labels}
 
+    def start_milestone_aggregation(self) -> None:
+        if self.event.action == self.action_type.MILESTONED:
+            self.aggregation["to"] = self.event.milestone
+        elif self.event.action == self.action_type.DEMILESTONED:
+            self.aggregation["from"] = self.event.milestone
+
     aggregation_starters: Dict[Tuple[EventType, Action], Callable] = {
         (EventType.ISSUES, IssueAction.OPENED): start_open_label_dropping,
         (EventType.ISSUES, IssueAction.LABELED): start_label_aggregation,
         (EventType.ISSUES, IssueAction.UNLABELED): start_label_aggregation,
+        (EventType.ISSUES, IssueAction.MILESTONED): start_milestone_aggregation,
+        (EventType.ISSUES, IssueAction.DEMILESTONED): start_milestone_aggregation,
         (EventType.PULL_REQUEST, PullRequestAction.OPENED): start_open_label_dropping,
         (EventType.PULL_REQUEST, PullRequestAction.LABELED): start_label_aggregation,
         (EventType.PULL_REQUEST, PullRequestAction.UNLABELED): start_label_aggregation,
@@ -119,6 +127,7 @@ class PendingAggregation:
                                         self.delivery_ids, aggregation=self.aggregation)
 
     def aggregate(self, evt_type: EventType, evt: Event, delivery_id: str) -> bool:
+        postpone = True
         if (evt_type == EventType.ISSUES and self.event_type == EventType.ISSUE_COMMENT
                 and evt.action in (IssueAction.CLOSED, IssueAction.REOPENED)
                 and self.event.sender.id == evt.sender.id):
@@ -148,11 +157,20 @@ class PendingAggregation:
                     self.aggregation["removed_labels"].append(evt.label)
                 else:
                     return False
+            elif self.event.action in (self.action_type.MILESTONED, self.action_type.DEMILESTONED):
+                if evt.action == self.action_type.MILESTONED:
+                    self.aggregation["to"] = evt.milestone
+                elif evt.action == self.action_type.DEMILESTONED:
+                    self.aggregation["from"] = evt.milestone
+                else:
+                    return False
+                postpone = False
             else:
                 return False
         else:
             return False
 
         self.delivery_ids.add(delivery_id)
-        self.postpone.set()
+        if postpone:
+            self.postpone.set()
         return True

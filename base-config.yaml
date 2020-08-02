@@ -140,6 +140,7 @@ messages:
         {% elif action == X_LABEL_AGGREGATE %} {{ templates.label_aggregation }}
         {% elif action == MILESTONED %}        added {{ templates.issue_link }} to {{ milestone_link(milestone) }}
         {% elif action == DEMILESTONED %}      removed {{ templates.issue_link }} from {{ milestone_link(milestone) }}
+        {% elif action == X_MILESTONE_CHANGED %} moved {{ templates.issue_link }} from {{ milestone_link(aggregation.from) }} to {{ milestone_link(aggregation.to) }}
         {% elif action == ASSIGNED %}          assigned {{ user_link(assignee) }} to
         {% elif action == UNASSIGNED %}        unassigned {{ user_link(assignee) }} from
         {% else %}                             {{ action }}

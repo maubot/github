@@ -409,6 +409,7 @@ class IssueAction(SerializableEnum):
     DEMILESTONED = "demilestoned"
 
     X_LABEL_AGGREGATE = "xyz.maubot.issue_label_aggregation"
+    X_MILESTONE_CHANGED = "xyz.maubot.issue_milestone_changed"
 
 
 @dataclass
