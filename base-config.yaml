@@ -72,12 +72,12 @@ macros: >
     {%- endmacro -%}
 
     {%- macro user_link(user) -%}
-        <a href="{{ user.html_url }}">{{ (user.name or user.login)|e }}</a>
+        <a data-mautrix-no-link href="{{ user.html_url }}">{{ (user.name or user.login)|e }}</a>
     {%- endmacro -%}
 
     {%- macro commit_user_link(user) -%}
         {% if user.username %}
-            <a href="https://github.com/{{ user.username }}">{{ user.name|e }}</a>
+            <a data-mautrix-no-link href="https://github.com/{{ user.username }}">{{ user.name|e }}</a>
         {% else %}
             {{ user.name|e }}
         {% endif %}
@@ -88,7 +88,7 @@ macros: >
     {%- endmacro -%}
 
     {%- macro repo_link(repo, important=True) -%}
-        <a href="{{ repo.html_url }}">{{ repo.full_name|e }}</a>
+        <a data-mautrix-no-link href="{{ repo.html_url }}">{{ repo.full_name|e }}</a>
     {%- endmacro -%}
 
     {%- macro personal_link(user, self_text=None, possessive=False, self=sender) -%}
@@ -265,7 +265,8 @@ messages:
         {% endif %}
 
         {% macro page_link(page) %}
-            <a href="{{ page.html_url }}">{{ page.title }}</a>
+            <a data-mautrix-no-link href="{{ page.html_url }}">{{ page.title }}</a>
+            (<a href="{{ page.html_url }}/_compare/{{ page.sha }}^...{{ page.sha }}">diff</a>)
         {% endmacro %}
 
         {% set created, edited = [], [] %}
