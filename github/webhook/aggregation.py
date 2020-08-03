@@ -164,6 +164,7 @@ class PendingAggregation:
                     self.aggregation["from"] = evt.milestone
                 else:
                     return False
+                self.event.action = self.action_type.X_MILESTONE_CHANGED
                 postpone = False
             else:
                 return False

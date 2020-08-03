@@ -83,8 +83,8 @@ macros: >
         {% endif %}
     {%- endmacro -%}
 
-    {%- macro milestone_link(milestone) -%}
-        milestone <a href="{{ milestone.html_url }}">{{ milestone.title|e }}</a>
+    {%- macro milestone_link(milestone, text=True) -%}
+        {% if text %}milestone {% endif %}<a href="{{ milestone.html_url }}">{{ milestone.title|e }}</a>
     {%- endmacro -%}
 
     {%- macro repo_link(repo, important=True) -%}
@@ -140,12 +140,12 @@ messages:
         {% elif action == X_LABEL_AGGREGATE %} {{ templates.label_aggregation }}
         {% elif action == MILESTONED %}        added {{ templates.issue_link }} to {{ milestone_link(milestone) }}
         {% elif action == DEMILESTONED %}      removed {{ templates.issue_link }} from {{ milestone_link(milestone) }}
-        {% elif action == X_MILESTONE_CHANGED %} moved {{ templates.issue_link }} from {{ milestone_link(aggregation.from) }} to {{ milestone_link(aggregation.to) }}
+        {% elif action == X_MILESTONE_CHANGED %} moved {{ templates.issue_link }} from {{ milestone_link(aggregation.from) }} to {{ milestone_link(aggregation.to, text=False) }}
         {% elif action == ASSIGNED %}          assigned {{ user_link(assignee) }} to
         {% elif action == UNASSIGNED %}        unassigned {{ user_link(assignee) }} from
         {% else %}                             {{ action }}
         {% endif %}
-        {% if action not in (OPENED, MILESTONED, DEMILESTONED) %}
+        {% if action not in (OPENED, MILESTONED, DEMILESTONED, X_MILESTONE_CHANGED) %}
             {{ templates.issue_link }}
         {% endif %}
 
@@ -165,6 +165,7 @@ messages:
         {% elif action == X_LABEL_AGGREGATE %} {{ templates.label_aggregation }}
         {% elif action == MILESTONED %}        added {{ templates.pr_link }} to {{ milestone_link(milestone) }}
         {% elif action == DEMILESTONED %}      removed {{ templates.pr_link }} from {{ milestone_link(milestone) }}
+        {% elif action == X_MILESTONE_CHANGED %} moved {{ templates.pr_link }} from {{ milestone_link(aggregation.from) }} to {{ milestone_link(aggregation.to, text=False) }}
         {% elif action == ASSIGNED %}          assigned {{ personal_link(requested_reviewer) }} to
         {% elif action == UNASSIGNED %}        unassigned {{ personal_link(requested_reviewer) }} from
         {% elif action == REVIEW_REQUESTED %}
@@ -178,7 +179,7 @@ messages:
         {% elif action == READY_FOR_REVIEW %}    marked {{ templates.pr_link }} as ready for review
         {% else %}                             {{ action }}
         {% endif %}
-        {% if action not in (OPENED, MILESTONED, DEMILESTONED, READY_FOR_REVIEW) %}
+        {% if action not in (OPENED, MILESTONED, DEMILESTONED, X_MILESTONE_CHANGED, READY_FOR_REVIEW) %}
             {{ templates.pr_link }}
         {% endif %}
 
