@@ -159,6 +159,12 @@ messages:
                 <blockquote>{{ pull_request.body|markdown }}</blockquote>
             {% endif %}
             {{ fancy_labels(pull_request.labels) }}
+        {% elif action == CLOSED %}
+          {% if pull_request.merged_at %}
+            <a data-mautrix-no-link href="{{ repo.html_url }}/commit/{{ pull_request.merge_commit_sha }}">merged</a>
+          {% else %}
+            closed
+          {% endif %}
         {% elif action == SYNCHRONIZE and pull_request.head.repo.id == pull_request.base.repo.id %} {% do abort() %}
         {% elif action == LABELED %}           {% do abort() %}
         {% elif action == UNLABELED %}         {% do abort() %}
