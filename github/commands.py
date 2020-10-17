@@ -100,12 +100,18 @@ class Commands:
         pass
 
     @github.subcommand("login", help="Log into GitHub.")
+    @command.argument("flags", required=False, pass_raw=True)
     @authenticated(required=False)
-    async def login(self, evt: MessageEvent, client: Optional[GitHubClient]) -> None:
+    async def login(self, evt: MessageEvent, flags: str, client: Optional[GitHubClient]) -> None:
         redirect_url = (self.bot.webapp_url / "auth").with_query({"user_id": evt.sender})
+        flags = flags.lower()
+        scopes = ["user:user", "public_repo", "admin:repo_hook"]
+        if "--no-hook" in flags:
+            scopes.remove("admin:repo_hook")
+        if "--private" in flags:
+            scopes.append("repo")
         login_url = str(self.bot.clients.get(evt.sender, create=True).get_login_url(
-            redirect_uri=redirect_url,
-            scope="user:user public_repo repo admin:repo_hook"))
+            redirect_uri=redirect_url, scope=" ".join(scopes)))
         if client:
             username = await client.query("viewer { login }", path="viewer.login")
             await evt.reply(f"You're already logged in as @{username}, but you can "
