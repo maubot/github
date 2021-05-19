@@ -94,7 +94,6 @@ class GitHubClient:
             full_query += f" ({args})"
         full_query += " {%s}" % query
         resp = await self.call_raw(full_query, variables)
-        print(resp)
         if path:
             return recursive_get(resp["data"], path)
         return resp["data"]
@@ -142,8 +141,6 @@ class GitHubClient:
             "events": events or ["push"],
             "active": active,
         }
-        print(self.base_url / "repos" / owner / repo / "hooks")
-        print(payload)
         resp = await self.http.post(self.base_url / "repos" / owner / repo / "hooks",
                                     data=json.dumps(payload), headers=self.headers)
         data = await resp.json()
