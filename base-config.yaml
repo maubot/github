@@ -34,7 +34,7 @@ templates:
     label_aggregation: >
         {% if aggregation.added_labels %}
             added {{ util.join_human_list(aggregation.added_labels, mutate=fancy_label) }}
-            {% if not aggregation.removed_labels %}to{% endif %}
+            {% if not aggregation.removed_labels %} to{% endif %}
         {% endif %}
         {% if aggregation.removed_labels %}
             {% if aggregation.added_labels %}
