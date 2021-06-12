@@ -72,12 +72,12 @@ macros: >
     {%- endmacro -%}
 
     {%- macro user_link(user) -%}
-        <a data-mautrix-no-link href="{{ user.html_url }}">{{ (user.name or user.login)|e }}</a>
+        <a data-mautrix-exclude-plaintext href="{{ user.html_url }}">{{ (user.name or user.login)|e }}</a>
     {%- endmacro -%}
 
     {%- macro commit_user_link(user) -%}
         {% if user.username %}
-            <a data-mautrix-no-link href="https://github.com/{{ user.username }}">{{ user.name|e }}</a>
+            <a data-mautrix-exclude-plaintext href="https://github.com/{{ user.username }}">{{ user.name|e }}</a>
         {% else %}
             {{ user.name|e }}
         {% endif %}
@@ -88,7 +88,7 @@ macros: >
     {%- endmacro -%}
 
     {%- macro repo_link(repo, important=True) -%}
-        <a data-mautrix-no-link href="{{ repo.html_url }}">{{ repo.full_name|e }}</a>
+        <a data-mautrix-exclude-plaintext href="{{ repo.html_url }}">{{ repo.full_name|e }}</a>
     {%- endmacro -%}
 
     {%- macro personal_link(user, self_text=None, possessive=False, self=sender) -%}
@@ -161,7 +161,7 @@ messages:
             {{ fancy_labels(pull_request.labels) }}
         {% elif action == CLOSED %}
           {% if pull_request.merged_at %}
-            <a data-mautrix-no-link href="{{ repo.html_url }}/commit/{{ pull_request.merge_commit_sha }}">merged</a>
+            <a data-mautrix-exclude-plaintext href="{{ repo.html_url }}/commit/{{ pull_request.merge_commit_sha }}">merged</a>
           {% else %}
             closed
           {% endif %}
@@ -272,7 +272,7 @@ messages:
         {% endif %}
 
         {% macro page_link(page) %}
-            <a data-mautrix-no-link href="{{ page.html_url }}">{{ page.title }}</a>
+            <a data-mautrix-exclude-plaintext href="{{ page.html_url }}">{{ page.title }}</a>
             (<a href="{{ page.html_url }}/_compare/{{ page.sha }}^...{{ page.sha }}">diff</a>)
         {% endmacro %}
 
