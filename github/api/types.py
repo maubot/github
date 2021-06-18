@@ -39,7 +39,7 @@ def datetime_deserializer(data: JSON) -> HubDateTime:
 
 
 @dataclass
-class User(SerializableAttrs['User']):
+class User(SerializableAttrs):
     login: str
     id: int
     node_id: str
@@ -64,7 +64,7 @@ class User(SerializableAttrs['User']):
 
 
 @dataclass
-class Organization(SerializableAttrs['Organization']):
+class Organization(SerializableAttrs):
     id: int
     node_id: str
     login: str
@@ -81,14 +81,14 @@ class Organization(SerializableAttrs['Organization']):
 
 
 @dataclass
-class GitUser(SerializableAttrs['GitUser']):
+class GitUser(SerializableAttrs):
     name: str
     email: str
     username: Optional[str] = None
 
 
 @dataclass
-class License(SerializableAttrs['License']):
+class License(SerializableAttrs):
     key: str
     name: str
     spdx_id: str
@@ -97,7 +97,7 @@ class License(SerializableAttrs['License']):
 
 
 @dataclass
-class Repository(SerializableAttrs['Repository']):
+class Repository(SerializableAttrs):
     id: int
     node_id: str
     name: str
@@ -181,7 +181,7 @@ class Repository(SerializableAttrs['Repository']):
 
 
 @dataclass
-class Commit(SerializableAttrs['Commit']):
+class Commit(SerializableAttrs):
     id: str
     tree_id: str
     distinct: bool
@@ -196,7 +196,7 @@ class Commit(SerializableAttrs['Commit']):
 
 
 @dataclass
-class PushEvent(SerializableAttrs['PushEvent']):
+class PushEvent(SerializableAttrs):
     ref: str
     before: str
     after: str
@@ -217,7 +217,7 @@ class PushEvent(SerializableAttrs['PushEvent']):
 
 
 @dataclass
-class ReleaseAsset(SerializableAttrs['ReleaseAsset']):
+class ReleaseAsset(SerializableAttrs):
     id: int
     node_id: int
     url: str
@@ -234,7 +234,7 @@ class ReleaseAsset(SerializableAttrs['ReleaseAsset']):
 
 
 @dataclass
-class Release(SerializableAttrs['Release']):
+class Release(SerializableAttrs):
     id: int
     node_id: str
     tag_name: str
@@ -268,7 +268,7 @@ class ReleaseAction(SerializableEnum):
 
 
 @dataclass
-class ReleaseEvent(SerializableAttrs['ReleaseEvent']):
+class ReleaseEvent(SerializableAttrs):
     action: ReleaseAction
     release: Release
     repository: Repository
@@ -281,7 +281,7 @@ class StarAction(SerializableEnum):
 
 
 @dataclass
-class StarEvent(SerializableAttrs['StarEvent']):
+class StarEvent(SerializableAttrs):
     action: StarAction
     starred_at: HubDateTime
     repository: Repository
@@ -293,21 +293,21 @@ class WatchAction(SerializableEnum):
 
 
 @dataclass
-class WatchEvent(SerializableAttrs['StarEvent']):
+class WatchEvent(SerializableAttrs):
     action: WatchAction
     repository: Repository
     sender: User
 
 
 @dataclass
-class ForkEvent(SerializableAttrs['ForkEvent']):
+class ForkEvent(SerializableAttrs):
     forkee: Repository
     repository: Repository
     sender: User
 
 
 @dataclass
-class Label(SerializableAttrs['Label']):
+class Label(SerializableAttrs):
     id: int
     node_id: str
     url: str
@@ -322,7 +322,7 @@ class IssueState(SerializableEnum):
 
 
 @dataclass
-class Milestone(SerializableAttrs['Milestone']):
+class Milestone(SerializableAttrs):
     id: int
     node_id: str
     number: int
@@ -344,7 +344,7 @@ class Milestone(SerializableAttrs['Milestone']):
 
 
 @dataclass
-class IssuePullURLs(SerializableAttrs['IssuePullURLs']):
+class IssuePullURLs(SerializableAttrs):
     diff_url: str
     html_url: str
     patch_url: str
@@ -352,7 +352,7 @@ class IssuePullURLs(SerializableAttrs['IssuePullURLs']):
 
 
 @dataclass
-class Issue(SerializableAttrs['Issue']):
+class Issue(SerializableAttrs):
     id: int
     node_id: str
     number: int
@@ -413,18 +413,18 @@ class IssueAction(SerializableEnum):
 
 
 @dataclass
-class Change(SerializableAttrs['Change']):
+class Change(SerializableAttrs):
     original: str = attr.ib(metadata={"json": "from"})
 
 
 @dataclass
-class IssueChanges(SerializableAttrs['IssueChanges']):
+class IssueChanges(SerializableAttrs):
     body: Optional[Change] = None
     title: Optional[Change] = None
 
 
 @dataclass
-class IssuesEvent(SerializableAttrs['IssuesEvent']):
+class IssuesEvent(SerializableAttrs):
     action: IssueAction
     issue: Issue
     repository: Repository
@@ -443,7 +443,7 @@ class IssuesEvent(SerializableAttrs['IssuesEvent']):
 
 
 @dataclass
-class IssueComment(SerializableAttrs['IssueComment']):
+class IssueComment(SerializableAttrs):
     id: int
     node_id: int
     url: str
@@ -467,7 +467,7 @@ class CommentAction(SerializableEnum):
 
 
 @dataclass
-class IssueCommentEvent(SerializableAttrs['IssueCommentEvent']):
+class IssueCommentEvent(SerializableAttrs):
     action: CommentAction
     issue: Issue
     comment: IssueComment
@@ -484,14 +484,14 @@ class IssueCommentEvent(SerializableAttrs['IssueCommentEvent']):
 
 
 @dataclass
-class WebhookResponse(SerializableAttrs['WebhookResponse']):
+class WebhookResponse(SerializableAttrs):
     code: Optional[int]
     status: str
     message: Optional[str]
 
 
 @dataclass
-class WebhookConfig(SerializableAttrs['WebhookConfig']):
+class WebhookConfig(SerializableAttrs):
     url: str
     content_type: Optional[str] = None
     secret: Optional[str] = None
@@ -499,7 +499,7 @@ class WebhookConfig(SerializableAttrs['WebhookConfig']):
 
 
 @dataclass
-class Webhook(SerializableAttrs['Webhook']):
+class Webhook(SerializableAttrs):
     id: int
     type: str
     name: str
@@ -515,14 +515,14 @@ class Webhook(SerializableAttrs['Webhook']):
 
 
 @dataclass
-class PingEvent(SerializableAttrs['PingEvent']):
+class PingEvent(SerializableAttrs):
     zen: str
     hook_id: int
     hook: Webhook
 
 
 @dataclass
-class CreateEvent(SerializableAttrs['CreateEvent']):
+class CreateEvent(SerializableAttrs):
     ref_type: str
     ref: str
     master_branch: str
@@ -533,7 +533,7 @@ class CreateEvent(SerializableAttrs['CreateEvent']):
 
 
 @dataclass
-class DeleteEvent(SerializableAttrs['DeleteEvent']):
+class DeleteEvent(SerializableAttrs):
     ref_type: str
     ref: str
     pusher_type: str
@@ -546,7 +546,7 @@ class MetaAction(SerializableEnum):
 
 
 @dataclass
-class MetaEvent(SerializableAttrs['MetaEvent']):
+class MetaEvent(SerializableAttrs):
     action: MetaAction
     hook: Webhook
     hook_id: int
@@ -555,7 +555,7 @@ class MetaEvent(SerializableAttrs['MetaEvent']):
 
 
 @dataclass
-class CommitComment(SerializableAttrs['CommitComment']):
+class CommitComment(SerializableAttrs):
     id: int
     node_id: str
     user: User
@@ -581,7 +581,7 @@ class CommitComment(SerializableAttrs['CommitComment']):
 
 
 @dataclass
-class CommitCommentEvent(SerializableAttrs['CommitCommentEvent']):
+class CommitCommentEvent(SerializableAttrs):
     action: CommentAction
     comment: CommitComment
     repository: Repository
@@ -596,7 +596,7 @@ class CommitCommentEvent(SerializableAttrs['CommitCommentEvent']):
 
 
 @dataclass
-class MilestoneChanges(SerializableAttrs['MilestoneChanges']):
+class MilestoneChanges(SerializableAttrs):
     title: Optional[Change] = None
     description: Optional[Change] = None
     due_on: Optional[Change] = None
@@ -611,7 +611,7 @@ class MilestoneAction(SerializableEnum):
 
 
 @dataclass
-class MilestoneEvent(SerializableAttrs['MilestoneEvent']):
+class MilestoneEvent(SerializableAttrs):
     action: MilestoneAction
     milestone: Milestone
     repository: Repository
@@ -626,13 +626,13 @@ class LabelAction(SerializableEnum):
 
 
 @dataclass
-class LabelChanges(SerializableAttrs['LabelChanges']):
+class LabelChanges(SerializableAttrs):
     name: Optional[Change] = None
     color: Optional[Change] = None
 
 
 @dataclass
-class LabelEvent(SerializableAttrs['LabelEvent']):
+class LabelEvent(SerializableAttrs):
     action: LabelAction
     label: Label
     changes: LabelChanges
@@ -646,7 +646,7 @@ class WikiPageAction(SerializableEnum):
 
 
 @dataclass
-class WikiPageEvent(SerializableAttrs['WikiPageEvent']):
+class WikiPageEvent(SerializableAttrs):
     action: WikiPageAction
     page_name: str
     title: str
@@ -656,14 +656,14 @@ class WikiPageEvent(SerializableAttrs['WikiPageEvent']):
 
 
 @dataclass
-class WikiEvent(SerializableAttrs['WikiEvent']):
+class WikiEvent(SerializableAttrs):
     pages: List[WikiPageEvent]
     repository: Repository
     sender: User
 
 
 @dataclass
-class PublicEvent(SerializableAttrs['PublicEvent']):
+class PublicEvent(SerializableAttrs):
     repository: Repository
     sender: User
 
@@ -674,7 +674,7 @@ class PullRequestState(SerializableEnum):
 
 
 @dataclass
-class PullRequestRef(SerializableAttrs['PullRequestRef']):
+class PullRequestRef(SerializableAttrs):
     label: str
     ref: str
     sha: str
@@ -694,7 +694,7 @@ class TeamPermission(SerializableEnum):
 
 
 @dataclass
-class Team(SerializableAttrs['Team']):
+class Team(SerializableAttrs):
     id: int
     node_id: str
     name: str
@@ -710,7 +710,7 @@ class Team(SerializableAttrs['Team']):
 
 
 @dataclass
-class PartialPullRequest(SerializableAttrs['PartialPullRequest']):
+class PartialPullRequest(SerializableAttrs):
     id: int
     node_id: str
     number: int
@@ -756,7 +756,7 @@ class PartialPullRequest(SerializableAttrs['PartialPullRequest']):
 
 
 @dataclass
-class PullRequest(PartialPullRequest, SerializableAttrs['PullRequest']):
+class PullRequest(PartialPullRequest, SerializableAttrs):
     merged_by: Optional[User]
 
     draft: bool
@@ -794,7 +794,7 @@ class PullRequestAction(SerializableEnum):
 
 
 @dataclass
-class PullRequestEvent(SerializableAttrs['PullRequestEvent']):
+class PullRequestEvent(SerializableAttrs):
     action: PullRequestAction
     pull_request: PullRequest
     number: int
@@ -820,7 +820,7 @@ class ReviewState(SerializableEnum):
 
 
 @dataclass
-class Review(SerializableAttrs['Review']):
+class Review(SerializableAttrs):
     id: int
     node_id: str
     user: User
@@ -834,12 +834,12 @@ class Review(SerializableAttrs['Review']):
 
 
 @dataclass
-class ReviewChanges(SerializableAttrs['ReviewChanges']):
+class ReviewChanges(SerializableAttrs):
     body: Optional[Change] = None
 
 
 @dataclass
-class PullRequestReviewEvent(SerializableAttrs['PullRequestReviewEvent']):
+class PullRequestReviewEvent(SerializableAttrs):
     action: PullRequestReviewAction
     pull_request: PartialPullRequest
     review: Review
@@ -855,7 +855,7 @@ class PullRequestReviewCommentAction(SerializableEnum):
 
 
 @dataclass
-class ReviewComment(SerializableAttrs['ReviewComment']):
+class ReviewComment(SerializableAttrs):
     id: int
     node_id: str
     pull_request_review_id: int
@@ -885,7 +885,7 @@ class ReviewComment(SerializableAttrs['ReviewComment']):
 
 
 @dataclass
-class PullRequestReviewCommentEvent(SerializableAttrs['PullRequestReviewCommentEvent']):
+class PullRequestReviewCommentEvent(SerializableAttrs):
     action: PullRequestReviewCommentAction
     pull_request: PartialPullRequest
     comment: ReviewComment
@@ -915,7 +915,7 @@ class RepositoryAction(SerializableEnum):
 
 
 @dataclass
-class RepositoryEvent(SerializableAttrs['RepositoryEvent']):
+class RepositoryEvent(SerializableAttrs):
     action: RepositoryAction
     repository: Repository
     sender: User
