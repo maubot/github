@@ -161,7 +161,7 @@ messages:
             {{ fancy_labels(pull_request.labels) }}
         {% elif action == CLOSED %}
           {% if pull_request.merged_at %}
-            <a data-mautrix-exclude-plaintext href="{{ repo.html_url }}/commit/{{ pull_request.merge_commit_sha }}">merged</a>
+            <a data-mautrix-exclude-plaintext href="{{ repository.html_url }}/commit/{{ pull_request.merge_commit_sha }}">merged</a>
           {% else %}
             closed
           {% endif %}
