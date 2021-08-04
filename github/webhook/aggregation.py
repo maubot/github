@@ -138,7 +138,7 @@ class PendingAggregation:
                 self.aggregation["reopened"] = True
         elif (evt_type == EventType.ISSUE_COMMENT and self.event_type == EventType.ISSUES
               and evt.action == CommentAction.CREATED and self.event.sender.id == evt.sender.id
-                and evt.issue_id == self.event.issue_id
+              and evt.issue_id == self.event.issue_id
               and self.event.action in (IssueAction.CLOSED, IssueAction.REOPENED)):
             self.event_type = evt_type
             self.event = evt
@@ -148,9 +148,9 @@ class PendingAggregation:
                 self.aggregation["reopened"] = True
         elif evt_type != self.event_type:
             return False
-        elif self.event_type in (EventType.ISSUES, EventType.PULL_REQUEST):
+        elif (self.event_type in (EventType.ISSUES, EventType.PULL_REQUEST)
+              and evt.issue_id == self.event.issue_id):
             if (self.event.action == self.action_type.OPENED
-                    and evt.issue_id == self.event.issue_id
                     and evt.label and evt.label.id in self._label_ids):
                 # Label was already in original event, drop the message.
                 pass
