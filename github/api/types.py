@@ -806,6 +806,13 @@ class PullRequestEvent(SerializableAttrs):
     milestone: Optional[Milestone] = None
     requested_reviewer: Optional[User] = None
 
+    def meta(self) -> Dict[str, Any]:
+        return {
+            "pull_request": self.pull_request.meta(),
+            "repository": self.repository.meta(),
+            "action": str(self.action),
+        }
+
 
 class PullRequestReviewAction(SerializableEnum):
     SUBMITTED = "submitted"

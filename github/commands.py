@@ -168,6 +168,8 @@ class Commands:
             return
         if webhook_meta["event_type"] == "issues" and webhook_meta["action"] == "opened":
             subject_id = webhook_meta["issue"]["node_id"]
+        elif webhook_meta["event_type"] == "pull_request" and webhook_meta["action"] == "opened":
+            subject_id = webhook_meta["pull_request"]["node_id"]
         elif webhook_meta["event_type"] == "issue_comment" and webhook_meta["action"] == "created":
             subject_id = webhook_meta["comment"]["node_id"]
         else:
