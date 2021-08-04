@@ -434,6 +434,10 @@ class IssuesEvent(SerializableAttrs):
     milestone: Optional[Milestone] = None
     changes: Optional[JSON] = None
 
+    @property
+    def issue_id(self) -> int:
+        return self.issue.id
+
     def meta(self) -> Dict[str, Any]:
         return {
             "issue": self.issue.meta(),
@@ -473,6 +477,10 @@ class IssueCommentEvent(SerializableAttrs):
     comment: IssueComment
     repository: Repository
     sender: User
+
+    @property
+    def issue_id(self) -> int:
+        return self.issue.id
 
     def meta(self) -> Dict[str, Any]:
         return {
@@ -805,6 +813,10 @@ class PullRequestEvent(SerializableAttrs):
     assignee: Optional[User] = None
     milestone: Optional[Milestone] = None
     requested_reviewer: Optional[User] = None
+
+    @property
+    def issue_id(self) -> int:
+        return self.pull_request.id
 
     def meta(self) -> Dict[str, Any]:
         return {
