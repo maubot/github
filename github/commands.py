@@ -39,11 +39,12 @@ def authenticated(_outer_fn=None, *, required: bool = True, error: bool = True):
             try:
                 return await fn(self, evt, **kwargs, client=client)
             except GraphQLError as e:
-                if e.type == "INSUFFICIENT_SCOPES":
-                    await evt.reply("Your login doesn't have sufficient access to do that. "
-                                    "Try adding more permissions with `!github login`.")
-                else:
-                    await evt.reply(str(e))
+                if error:
+                    if e.type == "INSUFFICIENT_SCOPES":
+                        await evt.reply("Your login doesn't have sufficient access to do that. "
+                                        "Try adding more permissions with `!github login`.")
+                    else:
+                        await evt.reply(str(e))
 
         return wrapper
 
