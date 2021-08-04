@@ -147,7 +147,7 @@ class PendingAggregation:
         elif evt_type != self.event_type:
             return False
         elif self.event_type in (EventType.ISSUES, EventType.PULL_REQUEST):
-            if self.event.action == self.action_type.OPENED and evt.label.id in self._label_ids:
+            if self.event.action == self.action_type.OPENED and evt.label and evt.label.id in self._label_ids:
                 # Label was already in original event, drop the message.
                 pass
             elif self.event.action == self.action_type.X_LABEL_AGGREGATE:
