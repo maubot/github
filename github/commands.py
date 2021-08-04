@@ -20,7 +20,7 @@ from maubot import MessageEvent
 from maubot.handlers import command, event
 from mautrix.types import EventType, Event, ReactionEvent, RelationType
 
-from .api import GitHubClient, GitHubError
+from .api import GitHubClient, GitHubError, GraphQLError
 
 if TYPE_CHECKING:
     from .bot import GitHubBot
@@ -36,7 +36,14 @@ def authenticated(_outer_fn=None, *, required: bool = True, error: bool = True):
                 return
             elif client and not client.token:
                 client = None
-            return await fn(self, evt, **kwargs, client=client)
+            try:
+                return await fn(self, evt, **kwargs, client=client)
+            except GraphQLError as e:
+                if e.type == "INSUFFICIENT_SCOPES":
+                    await evt.reply("Your login doesn't have sufficient access to do that. "
+                                    "Try adding more permissions with `!github login`.")
+                else:
+                    await evt.reply(str(e))
 
         return wrapper
 

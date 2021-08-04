@@ -35,6 +35,13 @@ class GitHubError(Exception):
         self.kwargs = kwargs
 
 
+class GraphQLError(Exception):
+    def __init__(self, type: str, message: str, **kwargs) -> None:
+        super().__init__(message)
+        self.type = type
+        self.kwargs = kwargs
+
+
 class GitHubClient:
     base_url: URL = URL("https://api.github.com")
     api_url: URL = base_url / "graphql"
@@ -94,10 +101,18 @@ class GitHubClient:
             full_query += f" ({args})"
         full_query += " {%s}" % query
         resp = await self.call_raw(full_query, variables)
-        print(resp)
+        try:
+            error = resp["errors"][0]
+            raise GraphQLError(**error)
+        except (KeyError, IndexError):
+            try:
+                data = resp["data"]
+            except KeyError:
+                raise GraphQLError(type="UNKNOWN_ERROR",
+                                   message="Unknown error: GitHub didn't return any data")
         if path:
-            return recursive_get(resp["data"], path)
-        return resp["data"]
+            return recursive_get(data, path)
+        return data
 
     @property
     def headers(self) -> Dict[str, str]:
