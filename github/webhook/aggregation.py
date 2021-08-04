@@ -64,7 +64,7 @@ class PendingAggregation:
         (EventType.ISSUES, IssueAction.CLOSED): noop,
     }
 
-    timeout = 1
+    timeout = 3
 
     handler: 'WebhookHandler'
     webhook_info: WebhookInfo
