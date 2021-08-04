@@ -106,6 +106,8 @@ class Commands:
         redirect_url = (self.bot.webapp_url / "auth").with_query({"user_id": evt.sender})
         flags = flags.lower()
         scopes = ["user:user", "public_repo", "admin:repo_hook"]
+        if "--no-repo" in flags:
+            scopes.remove("public_repo")
         if "--no-hook" in flags:
             scopes.remove("admin:repo_hook")
         if "--private" in flags:
