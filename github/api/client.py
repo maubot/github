@@ -157,8 +157,6 @@ class GitHubClient:
             "events": events or ["push"],
             "active": active,
         }
-        print(self.base_url / "repos" / owner / repo / "hooks")
-        print(payload)
         resp = await self.http.post(self.base_url / "repos" / owner / repo / "hooks",
                                     data=json.dumps(payload), headers=self.headers)
         data = await resp.json()
