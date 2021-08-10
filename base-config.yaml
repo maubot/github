@@ -244,7 +244,7 @@ messages:
             {% if commit.distinct %}
                 <li>
                     <code><a href="{{ commit.url }}">{{ commit.id[:8] }}</a></code>
-                    {{ util.cut_message(commit.message) }}
+                    {{ util.cut_message(commit.message)|e }}
                     {% if commit.author.username != sender.login %}
                         by {{ commit_user_link(commit.author) }}
                     {% endif %}
