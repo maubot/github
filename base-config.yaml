@@ -196,8 +196,7 @@ messages:
     pull_request_review: >
         {{ templates.repo_sender_prefix }}
         {% if action == SUBMITTED %}
-            <a href="{{ review.html_url }}">{{ review.state }}</a>
-            {% if review.state == ReviewState.COMMENTED %} on {% endif %}
+            <a href="{{ review.html_url }}">{{ review.state.action_str }}</a>
             {{ templates.pr_link }}
             {%- if review.body %}
                 : <blockquote>{{ review.body|markdown }}</blockquote>

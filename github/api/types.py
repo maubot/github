@@ -835,7 +835,17 @@ class PullRequestReviewAction(SerializableEnum):
 class ReviewState(SerializableEnum):
     COMMENTED = "commented"
     APPROVED = "approved"
-    REJECTED = "rejected"
+    REJECTED = "rejected"  # TODO: is this an actual state?
+    CHANGES_REQUESTED = "changes_requested"
+
+    @property
+    def action_str(self) -> str:
+        if self == ReviewState.CHANGES_REQUESTED:
+            return "requested changes on"
+        elif self == ReviewState.COMMENTED:
+            return "commented on"
+        else:
+            return self.value
 
 
 @dataclass
