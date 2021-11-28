@@ -129,6 +129,13 @@ class Commands:
         else:
             await evt.reply(f"[Click here to log in]({login_url})")
 
+    @github.subcommand("logout", help="Delete the stored GitHub access token.")
+    @authenticated
+    async def logout(self, evt: MessageEvent, client: GitHubClient) -> None:
+        await client.delete_token()
+        self.bot.clients.remove(evt.sender)
+        await evt.reply("Successfully logged out")
+
     @event.on(EventType.ROOM_MESSAGE)
     @authenticated(error=False)
     @with_webhook_meta(RelationType.REFERENCE)

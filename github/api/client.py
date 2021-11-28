@@ -137,15 +137,21 @@ class GitHubClient:
                                     headers=self.headers)
         return await resp.json()
 
-    async def reset_token(self) -> Optional[str]:
-        url = ((self.base_url / "applications" / self.client_id / "token")
+    @property
+    def _token_url(self) -> URL:
+        return ((self.base_url / "applications" / self.client_id / "token")
                .with_user(self.client_id).with_password(self.client_secret))
-        resp = await self.http.patch(url, json={"access_token": self.token})
+
+    async def reset_token(self) -> Optional[str]:
+        resp = await self.http.patch(self._token_url, json={"access_token": self.token})
         resp_data = await resp.json()
         if resp.status == 404:
             return None
         self.token = resp_data["token"]
         return self.token
+
+    async def delete_token(self) -> None:
+        await self.http.delete(self._token_url, json={"access_token": self.token})
 
     async def list_webhooks(self, owner: str, repo: str) -> List[Webhook]:
         resp = await self.http.get(self.base_url / "repos" / owner / repo / "hooks",
