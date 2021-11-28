@@ -66,7 +66,7 @@ class ClientManager:
             conn.execute(self._table.delete().where(self._table.c.user_id == user_id))
 
     def get_all(self) -> Dict[UserID, GitHubClient]:
-        return self._clients
+        return self._clients.copy()
 
     def get(self, user_id: UserID, create: bool = False) -> Optional[GitHubClient]:
         try:
