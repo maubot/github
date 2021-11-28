@@ -9,7 +9,4 @@ extra_files:
 - base-config.yaml
 database: true
 webapp: true
-#dependencies:
-#- foo
-#soft_dependencies:
-#- bar>=0.1
+config: true
