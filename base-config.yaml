@@ -9,6 +9,10 @@ webhook_key: generate
 # This is useful if you're self-hosting, but don't want to set up the GitHub OAuth stuff.
 global_webhook_secret: null
 
+# Set this to true to regenerate all user tokens using GitHub's reset token API.
+# It will switch back to false automatically.
+reset_tokens: false
+
 command_options:
     # Prefix for all the bot commands. Does not include the !
     prefix:

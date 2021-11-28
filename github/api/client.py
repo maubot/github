@@ -1,5 +1,5 @@
 # github - A maubot plugin to act as a GitHub client and webhook receiver.
-# Copyright (C) 2020 Tulir Asokan
+# Copyright (C) 2021 Tulir Asokan
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -21,8 +21,8 @@ import json
 from aiohttp import ClientSession
 from yarl import URL
 
-from github.api.types import Webhook
 from ..util import recursive_get
+from .types import Webhook
 
 OptStrList = Optional[List[str]]
 
@@ -121,6 +121,13 @@ class GitHubClient:
             "Accept": "application/json",
         }
 
+    @property
+    def rest_v3_headers(self) -> Dict[str, str]:
+        return {
+            **self.headers,
+            "Accept": "application/vnd.github.v3+json",
+        }
+
     async def call_raw(self, query: str, variables: Optional[Dict] = None) -> dict:
         resp = await self.http.post(self.api_url,
                                     json={
@@ -130,14 +137,24 @@ class GitHubClient:
                                     headers=self.headers)
         return await resp.json()
 
+    async def reset_token(self) -> Optional[str]:
+        url = ((self.base_url / "applications" / self.client_id / "token")
+               .with_user(self.client_id).with_password(self.client_secret))
+        resp = await self.http.patch(url, json={"access_token": self.token})
+        resp_data = await resp.json()
+        if resp.status == 404:
+            return None
+        self.token = resp_data["token"]
+        return self.token
+
     async def list_webhooks(self, owner: str, repo: str) -> List[Webhook]:
         resp = await self.http.get(self.base_url / "repos" / owner / repo / "hooks",
-                                   headers=self.headers)
+                                   headers=self.rest_v3_headers)
         return [Webhook.deserialize(info) for info in await resp.json()]
 
     async def get_webhook(self, owner: str, repo: str, hook_id: int) -> Webhook:
         resp = await self.http.get(self.base_url / "repos" / owner / repo / "hooks" / str(hook_id),
-                                   headers=self.headers)
+                                   headers=self.rest_v3_headers)
         data = await resp.json()
         if resp.status != 200:
             raise GitHubError(status=resp.status, **data)
@@ -158,7 +175,7 @@ class GitHubClient:
             "active": active,
         }
         resp = await self.http.post(self.base_url / "repos" / owner / repo / "hooks",
-                                    data=json.dumps(payload), headers=self.headers)
+                                    data=json.dumps(payload), headers=self.rest_v3_headers)
         data = await resp.json()
         if resp.status != 201:
             raise GitHubError(status=resp.status, **data)
@@ -192,7 +209,7 @@ class GitHubClient:
             payload["config"] = config
         resp = await self.http.patch(
             self.base_url / "repos" / owner / repo / "hooks" / str(hook_id),
-            data=json.dumps(payload), headers=self.headers)
+            data=json.dumps(payload), headers=self.rest_v3_headers)
         data = await resp.json()
         if resp.status != 200:
             raise GitHubError(status=resp.status, **data)
@@ -200,7 +217,9 @@ class GitHubClient:
 
     async def delete_webhook(self, owner: str, repo: str, hook_id: int) -> None:
         resp = await self.http.delete(
-            self.base_url / "repos" / owner / repo / "hooks" / str(hook_id), headers=self.headers)
+            self.base_url / "repos" / owner / repo / "hooks" / str(hook_id),
+            headers=self.rest_v3_headers,
+        )
         if resp.status != 204:
             data = await resp.json()
             raise GitHubError(status=resp.status, **data)

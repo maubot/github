@@ -1,5 +1,5 @@
 # github - A maubot plugin to act as a GitHub client and webhook receiver.
-# Copyright (C) 2020 Tulir Asokan
+# Copyright (C) 2021 Tulir Asokan
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as published by
@@ -29,6 +29,7 @@ class Config(BaseProxyConfig):
                                       if helper.source.get("webhook_key", "generate") == "generate"
                                       else helper.source["webhook_key"])
         helper.copy("global_webhook_secret")
+        helper.copy("reset_tokens")
         helper.copy("command_options.prefix")
         helper.copy("message_options.msgtype")
         helper.copy("message_options.aggregation_timeout")

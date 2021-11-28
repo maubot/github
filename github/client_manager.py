@@ -55,10 +55,18 @@ class ClientManager:
                             client_secret=self.client_secret,
                             token=token)
 
-    def _save(self, user_id: UserID, token: str) -> None:
+    def put(self, user_id: UserID, token: str) -> None:
         with self._db.begin() as conn:
             conn.execute(self._table.delete().where(self._table.c.user_id == user_id))
             conn.execute(self._table.insert().values(user_id=user_id, token=token))
+
+    def remove(self, user_id: UserID) -> None:
+        with self._db.begin() as conn:
+            self._clients.pop(user_id, None)
+            conn.execute(self._table.delete().where(self._table.c.user_id == user_id))
+
+    def get_all(self) -> Dict[UserID, GitHubClient]:
+        return self._clients
 
     def get(self, user_id: UserID, create: bool = False) -> Optional[GitHubClient]:
         try:
@@ -73,6 +81,16 @@ class ClientManager:
     @web_handler.get("/auth")
     async def login_callback(self, request: web.Request) -> web.Response:
         # TODO fancy webpages here
+        try:
+            error_code = request.query["error"]
+            error_msg = request.query["error_description"]
+            error_uri = request.query.get("error_uri", "<no URI provided>")
+        except KeyError:
+            pass
+        else:
+            return web.Response(status=400, text=f"Failed to log in: {error_code}\n\n"
+                                                 f"{error_msg}\n\n"
+                                                 f"More info at {error_uri}")
         try:
             user_id = UserID(request.query["user_id"])
             code = request.query["code"]
@@ -90,5 +108,5 @@ class ClientManager:
             return web.Response(status=401, text="Failed to finish login")
         resp = await client.query("viewer { login }")
         user = resp["viewer"]["login"]
-        self._save(user_id, client.token)
+        self.put(user_id, client.token)
         return web.Response(status=200, text=f"Logged in as {user}")
