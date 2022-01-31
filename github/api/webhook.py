@@ -103,7 +103,7 @@ class GitHubWebhookReceiver:
         except KeyError as e:
             return web.Response(status=400, text=f"Missing {e.args[0]} header")
         except ValueError:
-            return web.Response(status=500, text="Unsupported event type")
+            return web.Response(status=202, text="Unsupported event type")
         text = await request.text()
         text_binary = text.encode("utf-8")
         secret = webhook_info.secret.encode("utf-8")
@@ -119,7 +119,7 @@ class GitHubWebhookReceiver:
         try:
             type_class = EVENT_CLASSES[event_type]
         except KeyError:
-            return web.Response(status=500, text="Unsupported event type")
+            return web.Response(status=500, text="Content class not found")
         try:
             event = type_class.deserialize(data)
         except SerializerError:
