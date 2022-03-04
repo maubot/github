@@ -17,8 +17,8 @@ from typing import Dict, Tuple, Set, Callable, Type, Optional, Any, TYPE_CHECKIN
 import asyncio
 
 from .manager import WebhookInfo
-from github.api.types import (Event, EventType, Action, IssueAction, PullRequestAction,
-                              CommentAction, ACTION_CLASSES)
+from ..api.types import (Event, EventType, Action, IssueAction, PullRequestAction, CommentAction,
+                         ACTION_CLASSES)
 
 if TYPE_CHECKING:
     from .handler import WebhookHandler

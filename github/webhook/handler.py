@@ -33,7 +33,7 @@ from .manager import WebhookInfo
 from .aggregation import PendingAggregation
 
 if TYPE_CHECKING:
-    from github.bot import GitHubBot
+    from ..bot import GitHubBot
 
 spaces = re.compile(" +")
 space = " "
@@ -118,12 +118,11 @@ class WebhookHandler:
             "aggregation": aggregation,
         }
         args["templates"] = self.templates.proxy(args)
-        content = TextMessageEventContent(msgtype=self.msgtype, format=Format.HTML,
-                                          formatted_body=tpl.render(**args))
-        if not content.formatted_body or aborted:
+        html = tpl.render(**args)
+        if not html or aborted:
             return
-        content.formatted_body = spaces.sub(space, content.formatted_body.strip())
-        content.body = parse_html(content.formatted_body)
+        content = TextMessageEventContent(msgtype=self.msgtype, format=Format.HTML,
+                                          formatted_body=html, body=await parse_html(html.strip()))
         content["xyz.maubot.github.webhook"] = {
             "delivery_ids": list(delivery_ids),
             "event_type": str(evt_type),
