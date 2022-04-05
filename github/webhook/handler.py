@@ -128,4 +128,5 @@ class WebhookHandler:
             "event_type": str(evt_type),
             **(evt.meta() if hasattr(evt, "meta") else {}),
         }
+        content["com.beeper.linkpreviews"] = []
         await self.bot.client.send_message(room_id, content)
