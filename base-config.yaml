@@ -170,6 +170,7 @@ messages:
             closed
           {% endif %}
         {% elif action == SYNCHRONIZE and pull_request.head.repo.id == pull_request.base.repo.id %} {% do abort() %}
+        {% elif action == SYNCHRONIZE %}pushed something to
         {% elif action == LABELED %}           {% do abort() %}
         {% elif action == UNLABELED %}         {% do abort() %}
         {% elif action == X_LABEL_AGGREGATE %} {{ templates.label_aggregation }}
