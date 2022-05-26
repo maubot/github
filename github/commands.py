@@ -258,9 +258,18 @@ class Commands:
             # TODO webhook may be deleted on github side
             return
         webhook = self.bot.webhook_manager.create(repo_name, evt.sender, evt.room_id)
-        await client.create_webhook(*repo, url=self.bot.webapp_url / "webhook" / str(webhook.id),
-                                    secret=webhook.secret, content_type="json", events=["*"])
-        await evt.reply(f"Successfully created webhook for {repo_name}")
+        try:
+            await client.create_webhook(
+                *repo, url=self.bot.webapp_url / "webhook" / str(webhook.id),
+                secret=webhook.secret,
+                content_type="json",
+                events=["*"],
+            )
+        except GitHubError as e:
+            await evt.reply(f"Failed to create webhook: {e.message}")
+            self.bot.webhook_manager.delete(webhook.id)
+        else:
+            await evt.reply(f"Successfully created webhook for {repo_name}")
 
     @webhook.subcommand("remove", aliases=["delete", "rm", "del"])
     @command.argument("repo", required=True, matches=repo_syntax, label="owner/repo")

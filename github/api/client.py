@@ -33,6 +33,7 @@ class GitHubError(Exception):
         self.documentation_url = documentation_url
         self.status = status
         self.kwargs = kwargs
+        self.message = message
 
 
 class GraphQLError(Exception):
