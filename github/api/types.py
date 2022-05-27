@@ -321,6 +321,11 @@ class IssueState(SerializableEnum):
     CLOSED = "closed"
 
 
+class IssueStateReason(SerializableEnum):
+    COMPLETED = "completed"
+    NOT_PLANNED = "not_planned"
+
+
 @dataclass
 class Milestone(SerializableAttrs):
     id: int
@@ -363,6 +368,7 @@ class Issue(SerializableAttrs):
     author_association: str
     labels: List[Label]
     state: IssueState
+    state_reason: Optional[IssueStateReason]
     locked: bool
     milestone: Optional[Milestone]
 
