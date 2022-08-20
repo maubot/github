@@ -20,6 +20,7 @@ from sqlalchemy import MetaData
 
 from maubot import Plugin
 
+from .db import Database
 from .webhook import WebhookManager, WebhookHandler
 from .client_manager import ClientManager
 from .api import GitHubWebhookReceiver
@@ -28,6 +29,7 @@ from .config import Config
 
 
 class GitHubBot(Plugin):
+    db: Database
     webhook_receiver: GitHubWebhookReceiver
     webhook_manager: WebhookManager
     webhook_handler: WebhookHandler
@@ -40,6 +42,7 @@ class GitHubBot(Plugin):
 
         metadata = MetaData()
 
+        self.db = Database(self.database)
         self.clients = ClientManager(self.config["client_id"], self.config["client_secret"],
                                      self.http, self.database, metadata)
         self.webhook_manager = WebhookManager(self.config["webhook_key"],

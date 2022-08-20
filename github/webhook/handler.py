@@ -13,7 +13,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Dict, Set, Deque, Optional, Any, Callable, TYPE_CHECKING
+from typing import Dict, Set, Deque, Optional, Any, TYPE_CHECKING
 from collections import deque, defaultdict
 from uuid import UUID
 import asyncio
@@ -23,12 +23,31 @@ import re
 from jinja2 import TemplateNotFound
 import attr
 
-from mautrix.types import TextMessageEventContent, Format, MessageType, RoomID
+from mautrix.types import (
+    EventID,
+    EventType as MautrixEventType,
+    Format,
+    MessageType,
+    ReactionEventContent,
+    RelatesTo,
+    RelationType,
+    RoomID,
+    TextMessageEventContent,
+)
 from mautrix.util.formatter import parse_html
 
 from ..template import TemplateManager, TemplateUtil
-from ..api.types import (Event, EventType, MetaAction, RepositoryAction, expand_enum,
-                         ACTION_CLASSES, OTHER_ENUMS)
+from ..api.types import (
+    Event,
+    EventType,
+    MetaAction,
+    PushEvent,
+    RepositoryAction,
+    WorkflowJobEvent,
+    expand_enum,
+    ACTION_CLASSES,
+    OTHER_ENUMS,
+)
 from .manager import WebhookInfo
 from .aggregation import PendingAggregation
 
@@ -80,28 +99,62 @@ class WebhookHandler:
                 self.log.debug(f"Received repo delete hook for {info}")
                 self.bot.webhook_manager.delete(info.id)
         elif evt_type == EventType.PUSH and (evt.size is None or evt.distinct_size is None):
+            assert isinstance(evt, PushEvent)
             evt.size = len(evt.commits)
             evt.distinct_size = len([commit for commit in evt.commits if commit.distinct])
+        elif evt_type == EventType.WORKFLOW_JOB:
+            assert isinstance(evt, WorkflowJobEvent)
+            push_evt = self.bot.db.get_event(evt.push_id, info.room_id)
+            if not push_evt:
+                self.bot.log.debug(f"No message found to react to push {evt.push_id}")
+                return
+            reaction = ReactionEventContent(
+                RelatesTo(rel_type=RelationType.ANNOTATION, event_id=push_evt)
+            )
+            try:
+                reaction.relates_to.key = f"{evt.color_circle} {evt.workflow_job.name}"
+            except KeyError:
+                return
+            reaction["xyz.maubot.gitlab.webhook"] = {
+                "event_type": evt_type.name,
+                **evt.meta,
+            }
+
+            prev_reaction = self.bot.db.get_event(evt.reaction_id, info.room_id)
+            if prev_reaction:
+                await self.bot.client.redact(info.room_id, prev_reaction)
+            event_id = await self.bot.client.send_message_event(
+                info.room_id, MautrixEventType.REACTION, reaction
+            )
+            self.bot.db.put_event(
+                evt.reaction_id, info.room_id, event_id, merge=prev_reaction is not None
+            )
 
         if PendingAggregation.timeout < 0:
             # Aggregations are disabled
-            await self.send_message(evt_type, evt, info.room_id, {delivery_id})
+            event_id = await self.send_message(evt_type, evt, info.room_id, {delivery_id})
+            if evt_type == EventType.PUSH and event_id:
+                self.bot.db.put_event(evt.message_id, info.room_id, event_id)
             return
 
         for pending in self.pending_aggregations[info.id]:
             if pending.aggregate(evt_type, evt, delivery_id):
                 return
-        asyncio.ensure_future(PendingAggregation(self, evt_type, evt, delivery_id, info)
-                              .start())
+        asyncio.ensure_future(PendingAggregation(self, evt_type, evt, delivery_id, info).start())
 
-    async def send_message(self, evt_type: EventType, evt: Event, room_id: RoomID,
-                           delivery_ids: Set[str], aggregation: Optional[Dict[str, Any]] = None
-                           ) -> None:
+    async def send_message(
+        self,
+        evt_type: EventType,
+        evt: Event,
+        room_id: RoomID,
+        delivery_ids: Set[str],
+        aggregation: Optional[Dict[str, Any]] = None,
+    ) -> Optional[EventID]:
         try:
             tpl = self.messages[str(evt_type)]
         except TemplateNotFound:
             self.log.debug(f"Unhandled event of type {evt_type} -- {delivery_ids}")
-            return
+            return None
 
         aborted = False
 
@@ -120,13 +173,17 @@ class WebhookHandler:
         args["templates"] = self.templates.proxy(args)
         html = tpl.render(**args)
         if not html or aborted:
-            return
-        content = TextMessageEventContent(msgtype=self.msgtype, format=Format.HTML,
-                                          formatted_body=html, body=await parse_html(html.strip()))
+            return None
+        content = TextMessageEventContent(
+            msgtype=self.msgtype,
+            format=Format.HTML,
+            formatted_body=html,
+            body=await parse_html(html.strip()),
+        )
         content["xyz.maubot.github.webhook"] = {
             "delivery_ids": list(delivery_ids),
             "event_type": str(evt_type),
             **(evt.meta() if hasattr(evt, "meta") else {}),
         }
         content["com.beeper.linkpreviews"] = []
-        await self.bot.client.send_message(room_id, content)
+        return await self.bot.client.send_message(room_id, content)

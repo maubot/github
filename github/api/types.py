@@ -215,6 +215,12 @@ class PushEvent(SerializableAttrs):
     size: int = None
     distinct_size: int = None
 
+    @property
+    def message_id(self) -> str:
+        if not self.head_commit:
+            return ""
+        return f"push-{self.repository.id}-{self.head_commit.id}"
+
 
 @dataclass
 class ReleaseAsset(SerializableAttrs):
@@ -960,6 +966,89 @@ class RepositoryEvent(SerializableAttrs):
     changes: Optional[JSON] = None
 
 
+class WorkflowJobAction(SerializableEnum):
+    QUEUED = "queued"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+
+
+class WorkflowConclusion(SerializableEnum):
+    SUCCESS = "success"
+    FAILURE = "failure"
+    NEUTRAL = "neutral"
+    CANCELLED = "cancelled"
+    TIMED_OUT = "timed_out"
+    ACTION_REQUIRED = "action_required"
+    STALE = "stale"
+
+
+@dataclass
+class WorkflowJob(SerializableAttrs):
+    id: int
+    run_id: int
+    run_url: str
+    name: str
+    head_sha: str
+    conclusion: Optional[WorkflowConclusion] = None
+
+    @property
+    def meta(self) -> JSON:
+        info = {
+            "id": self.id,
+            "run_id": self.run_id,
+            "name": self.name,
+            "url": self.run_url,
+        }
+        if self.conclusion:
+            info["conclusion"] = self.conclusion.name
+        return info
+
+
+_build_status_circles: Dict[WorkflowJobAction, Union[Dict[WorkflowConclusion, str], str]] = {
+    WorkflowJobAction.QUEUED: "🟡",
+    WorkflowJobAction.IN_PROGRESS: "🔵",
+    WorkflowJobAction.COMPLETED: {
+        WorkflowConclusion.SUCCESS: "🟢",
+        WorkflowConclusion.FAILURE: "🔴",
+        WorkflowConclusion.NEUTRAL: "⚪",
+        WorkflowConclusion.CANCELLED: "⚫️",
+        WorkflowConclusion.TIMED_OUT: "⏱️",
+        WorkflowConclusion.ACTION_REQUIRED: "⚠️",
+        WorkflowConclusion.STALE: "⚪",
+    },
+}
+
+
+@dataclass
+class WorkflowJobEvent(SerializableAttrs):
+    action: WorkflowJobAction
+    workflow_job: WorkflowJob
+    repository: Repository
+    sender: User
+
+    organization: Optional[Organization] = None
+
+    @property
+    def push_id(self) -> str:
+        return f"push-{self.repository.id}-{self.workflow_job.head_sha}"
+
+    @property
+    def reaction_id(self) -> str:
+        return f"job-{self.repository.id}-{self.workflow_job.head_sha}-{self.workflow_job.id}"
+
+    @property
+    def color_circle(self) -> str:
+        circle_def = _build_status_circles[self.action]
+        if isinstance(circle_def, str):
+            return circle_def
+        else:
+            return circle_def[self.workflow_job.conclusion]
+
+    @property
+    def meta(self) -> JSON:
+        return {"build": self.workflow_job.meta}
+
+
 class EventType(SerializableEnum):
     ISSUES = "issues"
     ISSUE_COMMENT = "issue_comment"
@@ -981,16 +1070,48 @@ class EventType(SerializableEnum):
     PULL_REQUEST_REVIEW = "pull_request_review"
     PULL_REQUEST_REVIEW_COMMENT = "pull_request_review_comment"
     REPOSITORY = "repository"
+    WORKFLOW_JOB = "workflow_job"
 
 
-Event = Union[IssuesEvent, IssueCommentEvent, PushEvent, ReleaseEvent, StarEvent, WatchEvent,
-              PingEvent, ForkEvent, CreateEvent, MetaEvent, CommitCommentEvent, MilestoneEvent,
-              LabelEvent, WikiEvent, PublicEvent, PullRequestEvent, PullRequestReviewEvent,
-              PullRequestReviewCommentEvent, RepositoryEvent, DeleteEvent]
+Event = Union[
+    IssuesEvent,
+    IssueCommentEvent,
+    PushEvent,
+    ReleaseEvent,
+    StarEvent,
+    WatchEvent,
+    PingEvent,
+    ForkEvent,
+    CreateEvent,
+    MetaEvent,
+    CommitCommentEvent,
+    MilestoneEvent,
+    LabelEvent,
+    WikiEvent,
+    PublicEvent,
+    PullRequestEvent,
+    PullRequestReviewEvent,
+    PullRequestReviewCommentEvent,
+    RepositoryEvent,
+    DeleteEvent,
+    WorkflowJobEvent,
+]
 
-Action = Union[IssueAction, StarAction, CommentAction, WikiPageAction, MetaAction, ReleaseAction,
-               PullRequestAction, PullRequestReviewAction, PullRequestReviewCommentAction,
-               MilestoneAction, LabelAction, RepositoryAction]
+Action = Union[
+    IssueAction,
+    StarAction,
+    CommentAction,
+    WikiPageAction,
+    MetaAction,
+    ReleaseAction,
+    PullRequestAction,
+    PullRequestReviewAction,
+    PullRequestReviewCommentAction,
+    MilestoneAction,
+    LabelAction,
+    RepositoryAction,
+    WorkflowJobAction,
+]
 
 EVENT_CLASSES = {
     EventType.ISSUES: IssuesEvent,
@@ -1013,6 +1134,7 @@ EVENT_CLASSES = {
     EventType.PULL_REQUEST_REVIEW: PullRequestReviewEvent,
     EventType.PULL_REQUEST_REVIEW_COMMENT: PullRequestReviewCommentEvent,
     EventType.REPOSITORY: RepositoryEvent,
+    EventType.WORKFLOW_JOB: WorkflowJobEvent,
 }
 
 
@@ -1036,6 +1158,7 @@ ACTION_CLASSES = {
     EventType.MILESTONE: MilestoneAction,
     EventType.LABEL: LabelAction,
     EventType.REPOSITORY: RepositoryAction,
+    EventType.WORKFLOW_JOB: WorkflowJobAction,
 }
 
 OTHER_ENUMS = {
