@@ -14,11 +14,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from typing import Type
-import asyncio
 
 from sqlalchemy import MetaData
 
 from maubot import Plugin
+from mautrix.util import background_task
 
 from .db import Database
 from .webhook import WebhookManager, WebhookHandler
@@ -93,7 +93,7 @@ class GitHubBot(Plugin):
         self.commands.reload_config()
 
         if self.config["reset_tokens"]:
-            asyncio.create_task(self.reset_tokens())
+            background_task.create(self.reset_tokens())
 
     @classmethod
     def get_config_class(cls) -> Type[Config]:
