@@ -33,6 +33,7 @@ if TYPE_CHECKING:
 
     class WebhookInfo(Protocol):
         secret: str
+        old_secret: str
 
 
     class HandlerFunc(Protocol):
@@ -109,7 +110,10 @@ class GitHubWebhookReceiver:
         secret = webhook_info.secret.encode("utf-8")
         digest = f"sha1={hmac.new(secret, text_binary, hashlib.sha1).hexdigest()}"
         if not hmac.compare_digest(signature, digest):
-            return web.Response(status=401, text="Invalid signature")
+            old_secret = webhook_info.old_secret.encode("utf-8")
+            old_digest = f"sha1={hmac.new(old_secret, text_binary, hashlib.sha1).hexdigest()}"
+            if not hmac.compare_digest(signature, old_digest):
+                return web.Response(status=401, text="Invalid signature")
         try:
             data = json.loads(text)
         except json.JSONDecodeError:

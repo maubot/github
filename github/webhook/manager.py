@@ -21,7 +21,8 @@ import hmac
 from sqlalchemy import MetaData, Table, Column, String, Integer, UniqueConstraint, and_
 from sqlalchemy.engine.base import Engine
 
-from mautrix.types import UserID, RoomID
+from mautrix.types import UserID, RoomID, EventType, StateEvent, RoomTombstoneStateEventContent
+from maubot.handlers import event
 
 from ..util import UUIDType
 
@@ -61,11 +62,18 @@ class WebhookInfo:
         super().__setattr__(key, value)
 
     @property
-    def secret(self) -> str:
+    def old_secret(self) -> str:
         secret = hmac.new(key=self._secret_key, digestmod=hashlib.sha256)
         secret.update(self.id.bytes)
         secret.update(self.user_id.encode("utf-8"))
         secret.update(self.room_id.encode("utf-8"))
+        return secret.hexdigest()
+
+    @property
+    def secret(self) -> str:
+        secret = hmac.new(key=self._secret_key, digestmod=hashlib.sha256)
+        secret.update(self.id.bytes)
+        secret.update(self.user_id.encode("utf-8"))
         return secret.hexdigest()
 
 
@@ -98,6 +106,18 @@ class WebhookManager:
             user_id=info.user_id, room_id=info.room_id))
         self._webhooks[info.id] = info
         return info
+
+    @event.on(EventType.ROOM_TOMBSTONE)
+    async def handle_room_upgrade(self, evt: StateEvent) -> None:
+        assert isinstance(evt.content, RoomTombstoneStateEventContent)
+        self._db.execute(
+            self._table.update()
+                .where(self._table.c.room_id == evt.room_id)
+                .values(room_id=evt.content.replacement_room)
+        )
+        for webhook in self._webhooks.values():
+            if webhook.room_id == evt.room_id:
+                webhook.room_id = evt.content.replacement_room
 
     def set_github_id(self, info: WebhookInfo, github_id: int) -> WebhookInfo:
         self._db.execute(self._table.update()

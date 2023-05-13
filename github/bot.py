@@ -57,6 +57,7 @@ class GitHubBot(Plugin):
         self.clients.load_db()
 
         self.register_handler_class(self.webhook_receiver)
+        self.register_handler_class(self.webhook_manager)
         self.register_handler_class(self.clients)
         self.register_handler_class(self.commands)
 
