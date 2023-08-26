@@ -64,8 +64,10 @@ class GitHubClient:
         self.token = token
         self._login_state = ""
 
-    def get_login_url(self, redirect_uri: Union[str, URL], scope: str = "user repo") -> URL:
-        self._login_state = "".join(random.choices(string.ascii_lowercase + string.digits, k=64))
+    def get_login_url(self, user_id: str, scope: str = "user repo") -> URL:
+        user_id = user_id + "%"
+        self._randomState = "".join(random.choices(string.ascii_lowercase + string.digits, k=64))
+        self._login_state = user_id+self._randomState
         return self.login_url.with_query({
             "client_id": self.client_id,
             "redirect_uri": str(redirect_uri),

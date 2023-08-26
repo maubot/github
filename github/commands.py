@@ -120,8 +120,10 @@ class Commands:
             scopes.remove("admin:repo_hook")
         if "--private" in flags:
             scopes.append("repo")
+        # Pass user_id for state in Oauth
+        user_id = evt.sender
         login_url = str(self.bot.clients.get(evt.sender, create=True).get_login_url(
-            redirect_uri=redirect_url, scope=" ".join(scopes)))
+            user_id=user_id, scope=" ".join(scopes)))
         if client:
             username = await client.query("viewer { login }", path="viewer.login")
             await evt.reply(f"You're already logged in as @{username}, but you can "
