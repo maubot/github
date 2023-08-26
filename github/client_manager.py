@@ -92,20 +92,22 @@ class ClientManager:
                                                  f"{error_msg}\n\n"
                                                  f"More info at {error_uri}")
         try:
-            user_id = UserID(request.query["user_id"])
+            user_id_raw, randomState = (request.query["state"]).split('%')
+            user_id = UserID(user_id_raw)
             code = request.query["code"]
             state = request.query["state"]
+
         except KeyError as e:
             return web.Response(status=400, text=f"Missing {e.args[0]} parameter")
         client = self.get(user_id)
         if not client:
-            return web.Response(status=401, text="Invalid state token")
+            return web.Response(status=401, text="Invalid state token because no client")
         try:
             await client.finish_login(code, state)
         except ValueError:
-            return web.Response(status=401, text="Invalid state token")
+            return web.Response(status=401, text="Invalid state token because of ValueError")
         except (KeyError, ClientError):
-            return web.Response(status=401, text="Failed to finish login")
+            return web.Response(status=401, text=f"Failed to finish login")
         resp = await client.query("viewer { login }")
         user = resp["viewer"]["login"]
         self.put(user_id, client.token)
