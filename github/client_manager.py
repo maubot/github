@@ -107,7 +107,7 @@ class ClientManager:
         except ValueError:
             return web.Response(status=401, text="Invalid state token because of ValueError")
         except (KeyError, ClientError):
-            return web.Response(status=401, text=f"Failed to finish login{ClientError}")
+            return web.Response(status=401, text=f"Failed to finish login")
         resp = await client.query("viewer { login }")
         user = resp["viewer"]["login"]
         self.put(user_id, client.token)
