@@ -111,7 +111,6 @@ class Commands:
     @command.argument("flags", required=False, pass_raw=True)
     @authenticated(required=False)
     async def login(self, evt: MessageEvent, flags: str, client: Optional[GitHubClient]) -> None:
-        redirect_url = (self.bot.webapp_url / "auth").with_query({"user_id": evt.sender})
         flags = flags.lower()
         scopes = ["user:user", "public_repo", "admin:repo_hook"]
         if "--no-repo" in flags:
