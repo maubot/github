@@ -103,6 +103,8 @@ class WebhookHandler:
             evt.size = len(evt.commits)
             evt.distinct_size = len([commit for commit in evt.commits if commit.distinct])
         elif evt_type == EventType.WORKFLOW_JOB:
+            if evt.workflow_job.name == "lock-stale":
+                return
             assert isinstance(evt, WorkflowJobEvent)
             push_evt = self.bot.db.get_event(evt.push_id, info.room_id)
             if not push_evt:
