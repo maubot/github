@@ -287,7 +287,7 @@ class Commands:
                 try:
                     await client.delete_webhook(*repo, hook_id=webhook_info.github_id)
                 except GitHubError as e:
-                    if e.status == 404:
+                    if e.status_code == 404:
                         await evt.reply("Webhook deleted successfully")
                         return
                     else:
