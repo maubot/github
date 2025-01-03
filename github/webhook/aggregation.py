@@ -162,7 +162,12 @@ class PendingAggregation:
                 # Label was already in original event, drop the message.
                 pass
             elif self.event.action == self.action_type.X_LABEL_AGGREGATE:
-                if evt.action == self.action_type.LABELED:
+                if evt.action == self.action_type.OPENED:
+                    # Switch over to an issue create aggregation.
+                    self.aggregation = {}
+                    self.event = evt
+                    self.start_open_label_dropping()
+                elif evt.action == self.action_type.LABELED:
                     self.aggregation["added_labels"].append(evt.label)
                 elif evt.action == self.action_type.UNLABELED:
                     self.aggregation["removed_labels"].append(evt.label)
