@@ -26,6 +26,7 @@ from .client_manager import ClientManager
 from .api import GitHubWebhookReceiver
 from .commands import Commands
 from .config import Config
+from .avatar_manager import AvatarManager
 
 
 class GitHubBot(Plugin):
@@ -33,6 +34,7 @@ class GitHubBot(Plugin):
     webhook_receiver: GitHubWebhookReceiver
     webhook_manager: WebhookManager
     webhook_handler: WebhookHandler
+    avatars: AvatarManager
     clients: ClientManager
     commands: Commands
     config: Config
@@ -48,6 +50,7 @@ class GitHubBot(Plugin):
         self.webhook_manager = WebhookManager(self.config["webhook_key"],
                                               self.database, metadata)
         self.webhook_handler = WebhookHandler(bot=self)
+        self.avatars = AvatarManager(bot=self, metadata=metadata)
         self.webhook_receiver = GitHubWebhookReceiver(handler=self.webhook_handler,
                                                       secrets=self.webhook_manager,
                                                       global_secret=self.config["global_webhook_secret"])

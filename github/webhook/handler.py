@@ -47,6 +47,7 @@ from ..api.types import (
     expand_enum,
     ACTION_CLASSES,
     OTHER_ENUMS,
+    User,
 )
 from .manager import WebhookInfo
 from .aggregation import PendingAggregation
@@ -182,6 +183,18 @@ class WebhookHandler:
             formatted_body=html,
             body=await parse_html(html.strip()),
         )
+        if hasattr(evt, "sender") and isinstance(evt.sender, User):
+            mxc = ""
+            if evt.sender.avatar_url:
+                try:
+                    mxc = await self.bot.avatars.get_mxc(evt.sender.avatar_url)
+                except Exception:
+                    self.log.warning("Failed to get avatar URL", exc_info=True)
+            content["com.beeper.per_message_profile"] = {
+                "id": str(evt.sender.id),
+                "displayname": evt.sender.login,
+                "avatar_url": mxc,
+            }
         content["xyz.maubot.github.webhook"] = {
             "delivery_ids": list(delivery_ids),
             "event_type": str(evt_type),

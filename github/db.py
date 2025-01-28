@@ -23,7 +23,7 @@ from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.ext.declarative import declarative_base
 
-from mautrix.types import UserID, EventID, RoomID
+from mautrix.types import UserID, EventID, RoomID, ContentURI
 
 Base = declarative_base()
 
