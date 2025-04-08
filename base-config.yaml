@@ -227,6 +227,7 @@ messages:
         {% endif %}
 
     push: >
+        {% if util.ref_is_personal(ref) %} {% do abort() %} {% endif %}
         {{ templates.repo_sender_prefix }}
         {% if forced %}force{% endif %}
         {% if deleted %}deleted {{ util.ref_type(ref) }}
