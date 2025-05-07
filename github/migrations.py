@@ -17,16 +17,19 @@ from mautrix.util.async_db import Connection, Scheme, UpgradeTable
 
 upgrade_table = UpgradeTable()
 
+
 @upgrade_table.register(description="Latest revision", upgrades_to=1)
 async def upgrade_latest(conn: Connection, scheme: Scheme) -> None:
     needs_migration = False
     if await conn.table_exists("webhook"):
         needs_migration = True
-        await conn.execute("""
+        await conn.execute(
+            """
             ALTER TABLE webhook RENAME TO webhook_old;
             ALTER TABLE client RENAME TO client_old;
             ALTER TABLE matrix_message RENAME TO matrix_message_old;
-        """)
+        """
+        )
     await conn.execute(
         f"""CREATE TABLE client (
             user_id TEXT NOT NULL,
@@ -42,7 +45,7 @@ async def upgrade_latest(conn: Connection, scheme: Scheme) -> None:
             room_id   TEXT NOT NULL,
             secret    TEXT NOT NULL,
             github_id INTEGER,
-            PRIMARY KEY (id), 
+            PRIMARY KEY (id),
             CONSTRAINT webhook_repo_room_unique UNIQUE (repo, room_id)
         )"""
     )
@@ -64,7 +67,10 @@ async def upgrade_latest(conn: Connection, scheme: Scheme) -> None:
     if needs_migration:
         await migrate_legacy_to_v1(conn)
 
+
 async def migrate_legacy_to_v1(conn: Connection) -> None:
     await conn.execute("INSERT INTO client (user_id, token) SELECT user_id, token FROM client_old")
-    await conn.execute("INSERT INTO matrix_message (message_id, room_id, event_id) SELECT message_id, room_id, event_id FROM matrix_message_old")
+    await conn.execute(
+        "INSERT INTO matrix_message (message_id, room_id, event_id) SELECT message_id, room_id, event_id FROM matrix_message_old"
+    )
     await conn.execute("CREATE TABLE needs_post_migration(noop INTEGER PRIMARY KEY)")

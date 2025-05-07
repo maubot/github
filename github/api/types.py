@@ -13,13 +13,13 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Optional, NewType, List, Union, Type, Dict, Any
+from typing import Any, Dict, List, NewType, Optional, Type, Union
 from datetime import datetime
 
 from attr import dataclass
 import attr
 
-from mautrix.types import SerializableAttrs, SerializableEnum, serializer, deserializer, JSON
+from mautrix.types import JSON, SerializableAttrs, SerializableEnum, deserializer, serializer
 
 HubDateTime = NewType("HubDateTime", datetime)
 ISO_FORMAT = "%Y-%m-%dT%H:%M:%S%z"
@@ -471,7 +471,7 @@ class IssueComment(SerializableAttrs):
 
     def meta(self) -> Dict[str, Any]:
         return {
-            "id": self.id ,
+            "id": self.id,
             "node_id": self.node_id,
         }
 
@@ -562,7 +562,7 @@ class DeleteEvent(SerializableAttrs):
 
 
 class MetaAction(SerializableEnum):
-    DELETED = 'deleted'
+    DELETED = "deleted"
 
 
 @dataclass
@@ -594,7 +594,7 @@ class CommitComment(SerializableAttrs):
 
     def meta(self) -> Dict[str, Any]:
         return {
-            "id": self.id ,
+            "id": self.id,
             "node_id": self.node_id,
             "commit_id": self.commit_id,
         }
@@ -769,7 +769,7 @@ class PartialPullRequest(SerializableAttrs):
 
     def meta(self) -> Dict[str, Any]:
         return {
-            "id": self.id ,
+            "id": self.id,
             "node_id": self.node_id,
             "number": self.number,
         }
@@ -918,7 +918,7 @@ class ReviewComment(SerializableAttrs):
 
     def meta(self) -> Dict[str, Any]:
         return {
-            "id": self.id ,
+            "id": self.id,
             "node_id": self.node_id,
             "pull_request_review_id": self.pull_request_review_id,
             "commit_id": self.commit_id,

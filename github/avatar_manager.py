@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 import asyncio
 
-from sqlalchemy import MetaData, Table, Column, Text
+from sqlalchemy import Column, MetaData, Table, Text
 from sqlalchemy.engine.base import Engine
 
 from mautrix.types import ContentURI
@@ -13,21 +13,19 @@ if TYPE_CHECKING:
 
 
 class AvatarManager:
-    bot: 'GitHubBot'
+    bot: "GitHubBot"
     _avatars: dict[str, ContentURI]
     _db: DBManager
     _lock: asyncio.Lock
 
-    def __init__(self, bot: 'GitHubBot') -> None:
+    def __init__(self, bot: "GitHubBot") -> None:
         self.bot = bot
         self._db = bot.db
         self._lock = asyncio.Lock()
         self._avatars = {}
 
     async def load_db(self) -> None:
-        self._avatars = {url: ContentURI(mxc)
-                         for url, mxc
-                         in await self._db.get_avatars()}
+        self._avatars = {url: ContentURI(mxc) for url, mxc in await self._db.get_avatars()}
 
     async def get_mxc(self, url: str) -> ContentURI:
         try:

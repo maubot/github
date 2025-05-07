@@ -13,7 +13,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Tuple, Iterable, Any, Callable
+from typing import Any, Callable, Iterable, Tuple
 
 from jinja2 import BaseLoader, TemplateNotFound
 
@@ -42,8 +42,11 @@ class ConfigTemplateLoader(BaseLoader):
             raise TemplateNotFound(name)
         if not tpl:
             raise TemplateNotFound(name)
-        return (self.config["macros"] + tpl, name,
-                lambda: self.reload_counter == cur_reload_counter)
+        return (
+            self.config["macros"] + tpl,
+            name,
+            lambda: self.reload_counter == cur_reload_counter,
+        )
 
     def list_templates(self) -> Iterable[str]:
         return sorted(self.config[self.field].keys())

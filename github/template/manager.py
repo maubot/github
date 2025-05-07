@@ -13,7 +13,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Dict, Any
+from typing import Any, Dict
 
 from jinja2 import Environment as JinjaEnvironment, Template
 
@@ -30,8 +30,9 @@ class TemplateManager:
 
     def __init__(self, config: Config, key: str) -> None:
         self._loader = ConfigTemplateLoader(config, key)
-        self._env = JinjaEnvironment(loader=self._loader, lstrip_blocks=True, trim_blocks=True,
-                                     extensions=["jinja2.ext.do"])
+        self._env = JinjaEnvironment(
+            loader=self._loader, lstrip_blocks=True, trim_blocks=True, extensions=["jinja2.ext.do"]
+        )
         self._env.filters["markdown"] = lambda message: markdown.render(message, allow_html=True)
 
     def __getitem__(self, item: str) -> Template:

@@ -13,7 +13,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import List, Callable
+from typing import Callable, List
 
 from ..util import contrast, hex_to_rgb
 
@@ -26,9 +26,11 @@ class TemplateUtil:
 
     @classmethod
     def contrast_fg(cls, color: str) -> str:
-        return (cls.white_hex
-                if contrast(hex_to_rgb(color), cls.white_rgb) >= cls.contrast_threshold
-                else cls.black_hex)
+        return (
+            cls.white_hex
+            if contrast(hex_to_rgb(color), cls.white_rgb) >= cls.contrast_threshold
+            else cls.black_hex
+        )
 
     @staticmethod
     def cut_message(message: str, max_len: int = 72) -> str:
@@ -55,8 +57,13 @@ class TemplateUtil:
         return ref.split("/", 2)[2]
 
     @staticmethod
-    def join_human_list(data: List[str], *, joiner: str = ", ", final_joiner: str = " and ",
-                        mutate: Callable[[str], str] = lambda val: val) -> str:
+    def join_human_list(
+        data: List[str],
+        *,
+        joiner: str = ", ",
+        final_joiner: str = " and ",
+        mutate: Callable[[str], str] = lambda val: val,
+    ) -> str:
         if not data:
             return ""
         elif len(data) == 1:

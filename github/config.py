@@ -13,8 +13,8 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-import string
 import random
+import string
 
 from mautrix.util.config import BaseProxyConfig, ConfigUpdateHelper
 
@@ -25,9 +25,11 @@ class Config(BaseProxyConfig):
     def do_update(self, helper: ConfigUpdateHelper) -> None:
         helper.copy("client_id")
         helper.copy("client_secret")
-        helper.base["webhook_key"] = ("".join(random.choices(secret_charset, k=64))
-                                      if helper.source.get("webhook_key", "generate") == "generate"
-                                      else helper.source["webhook_key"])
+        helper.base["webhook_key"] = (
+            "".join(random.choices(secret_charset, k=64))
+            if helper.source.get("webhook_key", "generate") == "generate"
+            else helper.source["webhook_key"]
+        )
         helper.copy("global_webhook_secret")
         helper.copy("reset_tokens")
         helper.copy("command_options.prefix")

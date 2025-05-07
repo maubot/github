@@ -16,7 +16,7 @@
 from uuid import UUID, uuid4
 import random
 
-from mautrix.types import UserID, RoomID
+from mautrix.types import RoomID, UserID
 
 from ..db import DBManager, WebhookInfo
 
@@ -30,11 +30,13 @@ class WebhookManager:
         self._webhooks = {}
 
     async def create(self, repo: str, user_id: UserID, room_id: RoomID) -> WebhookInfo:
-        info = WebhookInfo(id=uuid4(),
-                           repo=repo,
-                           user_id=user_id,
-                           room_id=room_id,
-                           secret=random.randbytes(16).hex())
+        info = WebhookInfo(
+            id=uuid4(),
+            repo=repo,
+            user_id=user_id,
+            room_id=room_id,
+            secret=random.randbytes(16).hex(),
+        )
         await self._db.insert_webhook(info)
         self._webhooks[info.id] = info
         return info

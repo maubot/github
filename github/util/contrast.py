@@ -14,8 +14,8 @@ def hex_to_rgb(color: str) -> RGB:
     step = 1 if len(color) == 3 else 2
     try:
         r = int(color[0:step], 16)
-        g = int(color[step:2 * step], 16)
-        b = int(color[2 * step:3 * step], 16)
+        g = int(color[step : 2 * step], 16)
+        b = int(color[2 * step : 3 * step], 16)
     except ValueError as e:
         raise ValueError("Invalid hex value") from e
     return r / 255, g / 255, b / 255

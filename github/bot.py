@@ -15,19 +15,18 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from typing import Type
 
-from mautrix.util.async_db import UpgradeTable
-
 from maubot import Plugin
 from mautrix.util import background_task
+from mautrix.util.async_db import UpgradeTable
 
-from .db import DBManager
-from .migrations import upgrade_table
-from .webhook import WebhookManager, WebhookHandler
-from .client_manager import ClientManager
 from .api import GitHubWebhookReceiver
+from .avatar_manager import AvatarManager
+from .client_manager import ClientManager
 from .commands import Commands
 from .config import Config
-from .avatar_manager import AvatarManager
+from .db import DBManager
+from .migrations import upgrade_table
+from .webhook import WebhookHandler, WebhookManager
 
 
 class GitHubBot(Plugin):
@@ -48,14 +47,17 @@ class GitHubBot(Plugin):
             self.log.info("Running database post-migration")
             async with self.database.acquire() as conn, conn.transaction():
                 await self.db.run_post_migration(conn, self.config["webhook_key"])
-        self.clients = ClientManager(self.config["client_id"], self.config["client_secret"],
-                                     self.http, self.db)
+        self.clients = ClientManager(
+            self.config["client_id"], self.config["client_secret"], self.http, self.db
+        )
         self.webhook_manager = WebhookManager(self.db)
         self.webhook_handler = WebhookHandler(bot=self)
         self.avatars = AvatarManager(bot=self)
-        self.webhook_receiver = GitHubWebhookReceiver(handler=self.webhook_handler,
-                                                      secrets=self.webhook_manager,
-                                                      global_secret=self.config["global_webhook_secret"])
+        self.webhook_receiver = GitHubWebhookReceiver(
+            handler=self.webhook_handler,
+            secrets=self.webhook_manager,
+            global_secret=self.config["global_webhook_secret"],
+        )
         self.commands = Commands(bot=self)
 
         await self.clients.load_db()

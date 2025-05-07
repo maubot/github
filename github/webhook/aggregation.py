@@ -13,12 +13,19 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Dict, Tuple, Set, Callable, Type, Optional, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Set, Tuple, Type
 import asyncio
 
+from ..api.types import (
+    ACTION_CLASSES,
+    Action,
+    CommentAction,
+    Event,
+    EventType,
+    IssueAction,
+    PullRequestAction,
+)
 from .manager import WebhookInfo
-from ..api.types import (Event, EventType, Action, IssueAction, PullRequestAction, CommentAction,
-                         ACTION_CLASSES)
 
 if TYPE_CHECKING:
     from .handler import WebhookHandler
@@ -40,8 +47,9 @@ class PendingAggregation:
         self.event.action = self.action_type.X_LABEL_AGGREGATE
 
     def start_open_label_dropping(self) -> None:
-        event_field = (self.event.issue if self.event_type == EventType.ISSUES
-                       else self.event.pull_request)
+        event_field = (
+            self.event.issue if self.event_type == EventType.ISSUES else self.event.pull_request
+        )
         self._label_ids = {label.id for label in event_field.labels}
 
     def start_milestone_aggregation(self) -> None:
@@ -66,7 +74,7 @@ class PendingAggregation:
 
     timeout = 3
 
-    handler: 'WebhookHandler'
+    handler: "WebhookHandler"
     webhook_info: WebhookInfo
     delivery_ids: Set[str]
     event_type: EventType
@@ -77,8 +85,14 @@ class PendingAggregation:
 
     _label_ids: Optional[Set[int]]
 
-    def __init__(self, handler: 'WebhookHandler', evt_type: EventType, evt: Event, delivery_id: str,
-                 webhook_info: WebhookInfo) -> None:
+    def __init__(
+        self,
+        handler: "WebhookHandler",
+        evt_type: EventType,
+        evt: Event,
+        delivery_id: str,
+        webhook_info: WebhookInfo,
+    ) -> None:
         self.handler = handler
         self.webhook_info = webhook_info
         self.event_type = evt_type
@@ -131,22 +145,31 @@ class PendingAggregation:
             aggregation=self.aggregation,
         )
         if self.event_type == EventType.PUSH and event_id:
-            await self.handler.bot.db.put_event(self.event.message_id, self.webhook_info.room_id, event_id)
+            await self.handler.bot.db.put_event(
+                self.event.message_id, self.webhook_info.room_id, event_id
+            )
 
     def aggregate(self, evt_type: EventType, evt: Event, delivery_id: str) -> bool:
         postpone = True
-        if (evt_type == EventType.ISSUES and self.event_type == EventType.ISSUE_COMMENT
-                and evt.action in (IssueAction.CLOSED, IssueAction.REOPENED)
-                and evt.issue_id == self.event.issue_id
-                and self.event.sender.id == evt.sender.id):
+        if (
+            evt_type == EventType.ISSUES
+            and self.event_type == EventType.ISSUE_COMMENT
+            and evt.action in (IssueAction.CLOSED, IssueAction.REOPENED)
+            and evt.issue_id == self.event.issue_id
+            and self.event.sender.id == evt.sender.id
+        ):
             if evt.action == IssueAction.CLOSED:
                 self.aggregation["closed"] = True
             elif evt.action == IssueAction.REOPENED:
                 self.aggregation["reopened"] = True
-        elif (evt_type == EventType.ISSUE_COMMENT and self.event_type == EventType.ISSUES
-              and evt.action == CommentAction.CREATED and self.event.sender.id == evt.sender.id
-              and evt.issue_id == self.event.issue_id
-              and self.event.action in (IssueAction.CLOSED, IssueAction.REOPENED)):
+        elif (
+            evt_type == EventType.ISSUE_COMMENT
+            and self.event_type == EventType.ISSUES
+            and evt.action == CommentAction.CREATED
+            and self.event.sender.id == evt.sender.id
+            and evt.issue_id == self.event.issue_id
+            and self.event.action in (IssueAction.CLOSED, IssueAction.REOPENED)
+        ):
             self.event_type = evt_type
             self.event = evt
             if evt.action == IssueAction.CLOSED:
@@ -155,10 +178,15 @@ class PendingAggregation:
                 self.aggregation["reopened"] = True
         elif evt_type != self.event_type:
             return False
-        elif (self.event_type in (EventType.ISSUES, EventType.PULL_REQUEST)
-              and evt.issue_id == self.event.issue_id):
-            if (self.event.action == self.action_type.OPENED
-                    and evt.label and evt.label.id in self._label_ids):
+        elif (
+            self.event_type in (EventType.ISSUES, EventType.PULL_REQUEST)
+            and evt.issue_id == self.event.issue_id
+        ):
+            if (
+                self.event.action == self.action_type.OPENED
+                and evt.label
+                and evt.label.id in self._label_ids
+            ):
                 # Label was already in original event, drop the message.
                 pass
             elif self.event.action == self.action_type.X_LABEL_AGGREGATE:

@@ -14,16 +14,16 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-import uuid
-import hmac
-import hashlib
 from typing import Optional
+import hashlib
+import hmac
+import uuid
 
 from asyncpg import Record
 from attr import dataclass
 
-from mautrix.types import UserID, EventID, RoomID, ContentURI
-from mautrix.util.async_db import Database, Connection
+from mautrix.types import ContentURI, EventID, RoomID, UserID
+from mautrix.util.async_db import Connection, Database
 
 
 @dataclass(frozen=True)
@@ -59,6 +59,7 @@ class Avatar:
             mxc=mxc,
         )
 
+
 @dataclass(frozen=True)
 class WebhookInfo:
     id: uuid.UUID
@@ -88,8 +89,10 @@ class WebhookInfo:
         )
 
     def __str__(self) -> str:
-        return (f"webhook {self.id!s} (GH{self.github_id}) from {self.repo} to {self.room_id}"
-                f" added by {self.user_id}")
+        return (
+            f"webhook {self.id!s} (GH{self.github_id}) from {self.repo} to {self.room_id}"
+            f" added by {self.user_id}"
+        )
 
 
 class DBManager:
@@ -101,18 +104,24 @@ class DBManager:
     async def get_event(self, message_id: str, room_id: RoomID) -> EventID | None:
         return await self.db.fetchval(
             "SELECT event_id FROM matrix_message WHERE message_id = $1 AND room_id = $2",
-            message_id, room_id,
+            message_id,
+            room_id,
         )
 
     async def put_event(
-        self, message_id: str, room_id: RoomID, event_id: EventID,
+        self,
+        message_id: str,
+        room_id: RoomID,
+        event_id: EventID,
     ) -> None:
         await self.db.execute(
             """
             INSERT INTO matrix_message (message_id, room_id, event_id) VALUES ($1, $2, $3)
             ON CONFLICT (message_id, room_id) DO UPDATE SET event_id = excluded.event_id
             """,
-            message_id, room_id, event_id,
+            message_id,
+            room_id,
+            event_id,
         )
 
     async def get_clients(self) -> list[Client]:
@@ -125,12 +134,14 @@ class DBManager:
             INSERT INTO client (user_id, token) VALUES ($1, $2)
             ON CONFLICT (user_id) DO UPDATE SET token = excluded.token
             """,
-            user_id, token,
+            user_id,
+            token,
         )
 
     async def delete_client(self, user_id: UserID) -> None:
         await self.db.execute(
-            "DELETE FROM client WHERE user_id = $1", user_id,
+            "DELETE FROM client WHERE user_id = $1",
+            user_id,
         )
 
     async def get_avatars(self) -> list[Avatar]:
@@ -143,33 +154,41 @@ class DBManager:
             INSERT INTO avatar (url, mxc) VALUES ($1, $2)
             ON CONFLICT (url) DO NOTHING
             """,
-            url, mxc,
+            url,
+            mxc,
         )
 
     async def get_webhook_by_id(self, id: uuid.UUID) -> WebhookInfo | None:
         row = await self.db.fetchrow(
-            "SELECT id, repo, user_id, room_id, github_id, secret FROM webhook WHERE id = $1", id,
+            "SELECT id, repo, user_id, room_id, github_id, secret FROM webhook WHERE id = $1",
+            id,
         )
         return WebhookInfo.from_row(row)
 
     async def get_webhook_by_repo(self, room_id: RoomID, repo: str) -> WebhookInfo | None:
         row = await self.db.fetchrow(
-            "SELECT id, repo, user_id, room_id, github_id, secret FROM webhook WHERE room_id = $1 AND repo = $2", room_id, repo,
+            "SELECT id, repo, user_id, room_id, github_id, secret FROM webhook WHERE room_id = $1 AND repo = $2",
+            room_id,
+            repo,
         )
         return WebhookInfo.from_row(row)
 
     async def get_webhooks_in_room(self, room_id: RoomID) -> list[WebhookInfo]:
         rows = await self.db.fetch(
-            "SELECT id, repo, user_id, room_id, github_id, secret FROM webhook WHERE room_id = $1", room_id,
+            "SELECT id, repo, user_id, room_id, github_id, secret FROM webhook WHERE room_id = $1",
+            room_id,
         )
         return [WebhookInfo.from_row(row) for row in rows]
 
     async def delete_webhook(self, id: uuid.UUID) -> None:
         await self.db.execute(
-            "DELETE FROM webhook WHERE id = $1", id,
+            "DELETE FROM webhook WHERE id = $1",
+            id,
         )
 
-    async def insert_webhook(self, webhook: WebhookInfo, *, _conn: Connection | None = None) -> None:
+    async def insert_webhook(
+        self, webhook: WebhookInfo, *, _conn: Connection | None = None
+    ) -> None:
         await (_conn or self.db).execute(
             """
             INSERT INTO webhook (id, repo, user_id, room_id, secret, github_id)
@@ -180,17 +199,23 @@ class DBManager:
 
     async def set_webhook_github_id(self, id: uuid.UUID, github_id: int) -> None:
         await self.db.execute(
-            "UPDATE webhook SET github_id = $1 WHERE id = $2", github_id, id,
+            "UPDATE webhook SET github_id = $1 WHERE id = $2",
+            github_id,
+            id,
         )
 
     async def transfer_webhook_repo(self, id: uuid.UUID, new_repo: str) -> None:
         await self.db.execute(
-            "UPDATE webhook SET repo = $1 WHERE id = $2", new_repo, id,
+            "UPDATE webhook SET repo = $1 WHERE id = $2",
+            new_repo,
+            id,
         )
 
     async def transfer_webhook_rooms(self, old_room: RoomID, new_room: RoomID) -> None:
         await self.db.execute(
-            "UPDATE webhook SET room_id = $1 WHERE room_id = $2 ON CONFLICT (repo, room_id) DO NOTHING", new_room, old_room,
+            "UPDATE webhook SET room_id = $1 WHERE room_id = $2 ON CONFLICT (repo, room_id) DO NOTHING",
+            new_room,
+            old_room,
         )
 
     async def run_post_migration(self, conn: Connection, secret_key: str) -> None:

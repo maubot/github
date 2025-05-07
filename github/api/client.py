@@ -13,10 +13,10 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Optional, Dict, Union, Any, Awaitable, List
+from typing import Any, Awaitable, Dict, List, Optional, Union
+import json
 import random
 import string
-import json
 
 from aiohttp import ClientSession
 from yarl import URL
@@ -57,7 +57,9 @@ class GitHubClient:
     token: str
     _login_state: str
 
-    def __init__(self, http: ClientSession, client_id: str, client_secret: str, token: str) -> None:
+    def __init__(
+        self, http: ClientSession, client_id: str, client_secret: str, token: str
+    ) -> None:
         self.http = http
         self.client_id = client_id
         self.client_secret = client_secret
@@ -66,37 +68,59 @@ class GitHubClient:
 
     def get_login_url(self, redirect_uri: Union[str, URL], scope: str = "user repo") -> URL:
         self._login_state = "".join(random.choices(string.ascii_lowercase + string.digits, k=64))
-        return self.login_url.with_query({
-            "client_id": self.client_id,
-            "redirect_uri": str(redirect_uri),
-            "scope": scope,
-            "state": self._login_state,
-        })
+        return self.login_url.with_query(
+            {
+                "client_id": self.client_id,
+                "redirect_uri": str(redirect_uri),
+                "scope": scope,
+                "state": self._login_state,
+            }
+        )
 
     async def finish_login(self, code: str, state: str) -> None:
         if state != self._login_state:
             raise ValueError("Invalid state")
-        resp = await self.http.post(self.login_finish_url, json={
-            "client_id": self.client_id,
-            "client_secret": self.client_secret,
-            "code": code,
-            "state": self._login_state,
-        }, headers={
-            "Accept": "application/json",
-        })
+        resp = await self.http.post(
+            self.login_finish_url,
+            json={
+                "client_id": self.client_id,
+                "client_secret": self.client_secret,
+                "code": code,
+                "state": self._login_state,
+            },
+            headers={
+                "Accept": "application/json",
+            },
+        )
         data = await resp.json()
         self.token = data["access_token"]
 
-    def query(self, query: str, args: str = "", variables: Optional[Dict] = None,
-              path: Optional[str] = None) -> Awaitable[Any]:
+    def query(
+        self,
+        query: str,
+        args: str = "",
+        variables: Optional[Dict] = None,
+        path: Optional[str] = None,
+    ) -> Awaitable[Any]:
         return self.call("query", query, args, variables, path)
 
-    def mutate(self, query: str, args: str = "", variables: Optional[Dict] = None,
-               path: Optional[str] = None) -> Awaitable[Any]:
+    def mutate(
+        self,
+        query: str,
+        args: str = "",
+        variables: Optional[Dict] = None,
+        path: Optional[str] = None,
+    ) -> Awaitable[Any]:
         return self.call("mutation", query, args, variables, path)
 
-    async def call(self, query_type: str, query: str, args: str, variables: Optional[Dict] = None,
-                   path: Optional[str] = None) -> Any:
+    async def call(
+        self,
+        query_type: str,
+        query: str,
+        args: str,
+        variables: Optional[Dict] = None,
+        path: Optional[str] = None,
+    ) -> Any:
         full_query = query_type
         if args:
             full_query += f" ({args})"
@@ -109,8 +133,9 @@ class GitHubClient:
             try:
                 data = resp["data"]
             except KeyError:
-                raise GraphQLError(type="UNKNOWN_ERROR",
-                                   message="Unknown error: GitHub didn't return any data")
+                raise GraphQLError(
+                    type="UNKNOWN_ERROR", message="Unknown error: GitHub didn't return any data"
+                )
         if path:
             return recursive_get(data, path)
         return data
@@ -130,18 +155,18 @@ class GitHubClient:
         }
 
     async def call_raw(self, query: str, variables: Optional[Dict] = None) -> dict:
-        resp = await self.http.post(self.api_url,
-                                    json={
-                                        "query": query,
-                                        "variables": variables or {}
-                                    },
-                                    headers=self.headers)
+        resp = await self.http.post(
+            self.api_url, json={"query": query, "variables": variables or {}}, headers=self.headers
+        )
         return await resp.json()
 
     @property
     def _token_url(self) -> URL:
-        return ((self.base_url / "applications" / self.client_id / "token")
-               .with_user(self.client_id).with_password(self.client_secret))
+        return (
+            (self.base_url / "applications" / self.client_id / "token")
+            .with_user(self.client_id)
+            .with_password(self.client_secret)
+        )
 
     async def reset_token(self) -> Optional[str]:
         resp = await self.http.patch(self._token_url, json={"access_token": self.token})
@@ -155,21 +180,33 @@ class GitHubClient:
         await self.http.delete(self._token_url, json={"access_token": self.token})
 
     async def list_webhooks(self, owner: str, repo: str) -> List[Webhook]:
-        resp = await self.http.get(self.base_url / "repos" / owner / repo / "hooks",
-                                   headers=self.rest_v3_headers)
+        resp = await self.http.get(
+            self.base_url / "repos" / owner / repo / "hooks", headers=self.rest_v3_headers
+        )
         return [Webhook.deserialize(info) for info in await resp.json()]
 
     async def get_webhook(self, owner: str, repo: str, hook_id: int) -> Webhook:
-        resp = await self.http.get(self.base_url / "repos" / owner / repo / "hooks" / str(hook_id),
-                                   headers=self.rest_v3_headers)
+        resp = await self.http.get(
+            self.base_url / "repos" / owner / repo / "hooks" / str(hook_id),
+            headers=self.rest_v3_headers,
+        )
         data = await resp.json()
         if resp.status != 200:
             raise GitHubError(status_code=resp.status, **data)
         return Webhook.deserialize(data)
 
-    async def create_webhook(self, owner: str, repo: str, url: URL, *, active: bool = True,
-                             events: OptStrList = None, content_type: str = "form",
-                             secret: Optional[str] = None, insecure_ssl: bool = False) -> Webhook:
+    async def create_webhook(
+        self,
+        owner: str,
+        repo: str,
+        url: URL,
+        *,
+        active: bool = True,
+        events: OptStrList = None,
+        content_type: str = "form",
+        secret: Optional[str] = None,
+        insecure_ssl: bool = False,
+    ) -> Webhook:
         payload = {
             "name": "web",
             "config": {
@@ -181,18 +218,31 @@ class GitHubClient:
             "events": events or ["push"],
             "active": active,
         }
-        resp = await self.http.post(self.base_url / "repos" / owner / repo / "hooks",
-                                    data=json.dumps(payload), headers=self.rest_v3_headers)
+        resp = await self.http.post(
+            self.base_url / "repos" / owner / repo / "hooks",
+            data=json.dumps(payload),
+            headers=self.rest_v3_headers,
+        )
         data = await resp.json()
         if resp.status != 201:
             raise GitHubError(status_code=resp.status, **data)
         return Webhook.deserialize(data)
 
-    async def edit_webhook(self, owner: str, repo: str, hook_id: int, *, url: Optional[URL] = None,
-                           active: Optional[bool] = None, events: OptStrList = None,
-                           add_events: OptStrList = None, remove_events: OptStrList = None,
-                           content_type: Optional[str] = None, secret: Optional[str] = None,
-                           insecure_ssl: Optional[bool] = None) -> Webhook:
+    async def edit_webhook(
+        self,
+        owner: str,
+        repo: str,
+        hook_id: int,
+        *,
+        url: Optional[URL] = None,
+        active: Optional[bool] = None,
+        events: OptStrList = None,
+        add_events: OptStrList = None,
+        remove_events: OptStrList = None,
+        content_type: Optional[str] = None,
+        secret: Optional[str] = None,
+        insecure_ssl: Optional[bool] = None,
+    ) -> Webhook:
         payload = {}
         if events:
             if add_events or remove_events:
@@ -216,7 +266,9 @@ class GitHubClient:
             payload["config"] = config
         resp = await self.http.patch(
             self.base_url / "repos" / owner / repo / "hooks" / str(hook_id),
-            data=json.dumps(payload), headers=self.rest_v3_headers)
+            data=json.dumps(payload),
+            headers=self.rest_v3_headers,
+        )
         data = await resp.json()
         if resp.status != 200:
             raise GitHubError(status_code=resp.status, **data)

@@ -13,7 +13,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Dict, Any
+from typing import Any, Dict
 
 from jinja2 import Environment as JinjaEnvironment, TemplateNotFound
 

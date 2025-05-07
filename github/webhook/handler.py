@@ -13,8 +13,8 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Dict, Set, Deque, Optional, Any, TYPE_CHECKING
-from collections import deque, defaultdict
+from typing import TYPE_CHECKING, Any, Deque, Dict, Optional, Set
+from collections import defaultdict, deque
 from uuid import UUID
 import asyncio
 import logging
@@ -36,21 +36,21 @@ from mautrix.types import (
 )
 from mautrix.util.formatter import parse_html
 
-from ..template import TemplateManager, TemplateUtil
 from ..api.types import (
+    ACTION_CLASSES,
+    OTHER_ENUMS,
     Event,
     EventType,
     MetaAction,
     PushEvent,
     RepositoryAction,
+    User,
     WorkflowJobEvent,
     expand_enum,
-    ACTION_CLASSES,
-    OTHER_ENUMS,
-    User,
 )
-from .manager import WebhookInfo
+from ..template import TemplateManager, TemplateUtil
 from .aggregation import PendingAggregation
+from .manager import WebhookInfo
 
 if TYPE_CHECKING:
     from ..bot import GitHubBot
@@ -61,13 +61,13 @@ space = " "
 
 class WebhookHandler:
     log: logging.Logger
-    bot: 'GitHubBot'
+    bot: "GitHubBot"
     msgtype: MessageType
     messages: TemplateManager
     templates: TemplateManager
     pending_aggregations: Dict[UUID, Deque[PendingAggregation]]
 
-    def __init__(self, bot: 'GitHubBot') -> None:
+    def __init__(self, bot: "GitHubBot") -> None:
         self.bot = bot
         self.log = self.bot.log.getChild("webhook")
         self.msgtype = MessageType(bot.config["message_options.msgtype"]) or MessageType.NOTICE
@@ -79,10 +79,14 @@ class WebhookHandler:
     def reload_config(self) -> None:
         self.messages.reload()
         self.templates.reload()
-        self.msgtype = MessageType(self.bot.config["message_options.msgtype"]) or MessageType.NOTICE
+        self.msgtype = (
+            MessageType(self.bot.config["message_options.msgtype"]) or MessageType.NOTICE
+        )
         PendingAggregation.timeout = int(self.bot.config["message_options.aggregation_timeout"])
 
-    async def __call__(self, evt_type: EventType, evt: Event, delivery_id: str, info: WebhookInfo) -> None:
+    async def __call__(
+        self, evt_type: EventType, evt: Event, delivery_id: str, info: WebhookInfo
+    ) -> None:
         if evt_type == EventType.PING:
             self.log.debug(f"Received ping for {info}: {evt.zen}")
             await self.bot.webhook_manager.set_github_id(info, evt.hook_id)

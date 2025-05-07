@@ -13,10 +13,10 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from aiohttp import web, ClientError, ClientSession
+from aiohttp import ClientError, ClientSession, web
 
-from mautrix.types import UserID
 from maubot.handlers import web as web_handler
+from mautrix.types import UserID
 
 from .api import GitHubClient
 from .db import DBManager
@@ -37,15 +37,17 @@ class ClientManager:
         self._clients = {}
 
     async def load_db(self) -> None:
-        self._clients = {user_id: self._make(token)
-                         for user_id, token
-                         in await self._db.get_clients()}
+        self._clients = {
+            user_id: self._make(token) for user_id, token in await self._db.get_clients()
+        }
 
     def _make(self, token: str) -> GitHubClient:
-        return GitHubClient(http=self._http,
-                            client_id=self.client_id,
-                            client_secret=self.client_secret,
-                            token=token)
+        return GitHubClient(
+            http=self._http,
+            client_id=self.client_id,
+            client_secret=self.client_secret,
+            token=token,
+        )
 
     async def put(self, user_id: UserID, token: str) -> None:
         await self._db.put_client(user_id, token)
@@ -77,9 +79,12 @@ class ClientManager:
         except KeyError:
             pass
         else:
-            return web.Response(status=400, text=f"Failed to log in: {error_code}\n\n"
-                                                 f"{error_msg}\n\n"
-                                                 f"More info at {error_uri}")
+            return web.Response(
+                status=400,
+                text=f"Failed to log in: {error_code}\n\n"
+                f"{error_msg}\n\n"
+                f"More info at {error_uri}",
+            )
         try:
             user_id = UserID(request.query["user_id"])
             code = request.query["code"]
