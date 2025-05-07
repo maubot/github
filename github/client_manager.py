@@ -38,7 +38,7 @@ class ClientManager:
 
     async def load_db(self) -> None:
         self._clients = {
-            user_id: self._make(token) for user_id, token in await self._db.get_clients()
+            cli.user_id: self._make(cli.token) for cli in await self._db.get_clients()
         }
 
     def _make(self, token: str) -> GitHubClient:

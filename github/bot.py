@@ -47,6 +47,7 @@ class GitHubBot(Plugin):
             self.log.info("Running database post-migration")
             async with self.database.acquire() as conn, conn.transaction():
                 await self.db.run_post_migration(conn, self.config["webhook_key"])
+            self.log.info("Webhook secret migration completed successfully")
         self.clients = ClientManager(
             self.config["client_id"], self.config["client_secret"], self.http, self.db
         )

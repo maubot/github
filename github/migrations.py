@@ -23,13 +23,9 @@ async def upgrade_latest(conn: Connection, scheme: Scheme) -> None:
     needs_migration = False
     if await conn.table_exists("webhook"):
         needs_migration = True
-        await conn.execute(
-            """
-            ALTER TABLE webhook RENAME TO webhook_old;
-            ALTER TABLE client RENAME TO client_old;
-            ALTER TABLE matrix_message RENAME TO matrix_message_old;
-        """
-        )
+        await conn.execute("ALTER TABLE webhook RENAME TO webhook_old;")
+        await conn.execute("ALTER TABLE client RENAME TO client_old;")
+        await conn.execute("ALTER TABLE matrix_message RENAME TO matrix_message_old;")
     await conn.execute(
         f"""CREATE TABLE client (
             user_id TEXT NOT NULL,

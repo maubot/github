@@ -16,7 +16,8 @@
 from uuid import UUID, uuid4
 import random
 
-from mautrix.types import RoomID, UserID
+from maubot.handlers import event
+from mautrix.types import EventType, RoomID, StateEvent, UserID
 
 from ..db import DBManager, WebhookInfo
 
@@ -80,3 +81,8 @@ class WebhookManager:
         for item in items:
             self._webhooks[item.id] = item
         return items
+
+    @event.on(EventType.ROOM_TOMBSTONE)
+    async def handle_tombstone(self, evt: StateEvent) -> None:
+        if evt.state_key == "" and evt.content.replacement_room:
+            await self.transfer_rooms(evt.room_id, evt.content.replacement_room)

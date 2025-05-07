@@ -3,7 +3,7 @@ client_id: 123ab456789cd0123456
 client_secret: 12345a6789b0123cd45e6f7g8h9i01234567890j
 
 # Random string for signing webhook secrets. If set to "generate", one will be generated for you.
-# WARNING: Changing this will invalidate all created webhooks.
+# This is no longer used for new webhooks, it is only needed while migrating.
 webhook_key: generate
 # A global webhook secret that can be used to manually created webhooks.
 # This is useful if you're self-hosting, but don't want to set up the GitHub OAuth stuff.

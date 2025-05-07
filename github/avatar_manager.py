@@ -25,7 +25,9 @@ class AvatarManager:
         self._avatars = {}
 
     async def load_db(self) -> None:
-        self._avatars = {url: ContentURI(mxc) for url, mxc in await self._db.get_avatars()}
+        self._avatars = {
+            avatar.url: ContentURI(avatar.mxc) for avatar in await self._db.get_avatars()
+        }
 
     async def get_mxc(self, url: str) -> ContentURI:
         try:

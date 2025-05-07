@@ -161,7 +161,7 @@ class DBManager:
     async def get_webhook_by_id(self, id: uuid.UUID) -> WebhookInfo | None:
         row = await self.db.fetchrow(
             "SELECT id, repo, user_id, room_id, github_id, secret FROM webhook WHERE id = $1",
-            id,
+            str(id),
         )
         return WebhookInfo.from_row(row)
 
@@ -183,7 +183,7 @@ class DBManager:
     async def delete_webhook(self, id: uuid.UUID) -> None:
         await self.db.execute(
             "DELETE FROM webhook WHERE id = $1",
-            id,
+            str(id),
         )
 
     async def insert_webhook(
@@ -194,21 +194,26 @@ class DBManager:
             INSERT INTO webhook (id, repo, user_id, room_id, secret, github_id)
             VALUES ($1, $2, $3, $4, $5, $6)
             """,
-            *webhook,
+            str(webhook.id),
+            webhook.repo,
+            webhook.user_id,
+            webhook.room_id,
+            webhook.secret,
+            webhook.github_id,
         )
 
     async def set_webhook_github_id(self, id: uuid.UUID, github_id: int) -> None:
         await self.db.execute(
             "UPDATE webhook SET github_id = $1 WHERE id = $2",
             github_id,
-            id,
+            str(id),
         )
 
     async def transfer_webhook_repo(self, id: uuid.UUID, new_repo: str) -> None:
         await self.db.execute(
             "UPDATE webhook SET repo = $1 WHERE id = $2",
             new_repo,
-            id,
+            str(id),
         )
 
     async def transfer_webhook_rooms(self, old_room: RoomID, new_room: RoomID) -> None:
@@ -219,7 +224,9 @@ class DBManager:
         )
 
     async def run_post_migration(self, conn: Connection, secret_key: str) -> None:
-        rows = await self.db.fetch("SELECT id, repo, user_id, room_id, github_id FROM webhook_old")
+        rows = list(
+            await conn.fetch("SELECT id, repo, user_id, room_id, github_id FROM webhook_old")
+        )
         for row in rows:
             id = uuid.UUID(row["id"])
             secret = hmac.new(key=secret_key.encode("utf-8"), digestmod=hashlib.sha256)
