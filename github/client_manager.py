@@ -13,41 +13,33 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Dict, Optional
-
-from sqlalchemy import MetaData, Table, Column, String
-from sqlalchemy.engine.base import Engine
 from aiohttp import web, ClientError, ClientSession
 
 from mautrix.types import UserID
 from maubot.handlers import web as web_handler
 
 from .api import GitHubClient
+from .db import DBManager
 
 
 class ClientManager:
     client_id: str
     client_secret: str
-    _clients: Dict[UserID, GitHubClient]
-    _table: Table
-    _db: Engine
+    _clients: dict[UserID, GitHubClient]
+    _db: DBManager
     _http: ClientSession
 
-    def __init__(self, client_id: str, client_secret: str, http: ClientSession,
-                 db: Engine, metadata: MetaData):
+    def __init__(self, client_id: str, client_secret: str, http: ClientSession, db: DBManager):
         self.client_id = client_id
         self.client_secret = client_secret
         self._db = db
         self._http = http
-        self._table = Table("client", metadata,
-                            Column("user_id", String(255), primary_key=True),
-                            Column("token", String(255), nullable=False))
         self._clients = {}
 
-    def load_db(self) -> None:
+    async def load_db(self) -> None:
         self._clients = {user_id: self._make(token)
                          for user_id, token
-                         in self._db.execute(self._table.select())}
+                         in await self._db.get_clients()}
 
     def _make(self, token: str) -> GitHubClient:
         return GitHubClient(http=self._http,
@@ -55,20 +47,17 @@ class ClientManager:
                             client_secret=self.client_secret,
                             token=token)
 
-    def put(self, user_id: UserID, token: str) -> None:
-        with self._db.begin() as conn:
-            conn.execute(self._table.delete().where(self._table.c.user_id == user_id))
-            conn.execute(self._table.insert().values(user_id=user_id, token=token))
+    async def put(self, user_id: UserID, token: str) -> None:
+        await self._db.put_client(user_id, token)
 
-    def remove(self, user_id: UserID) -> None:
-        with self._db.begin() as conn:
-            self._clients.pop(user_id, None)
-            conn.execute(self._table.delete().where(self._table.c.user_id == user_id))
+    async def remove(self, user_id: UserID) -> None:
+        self._clients.pop(user_id, None)
+        await self._db.delete_client(user_id)
 
-    def get_all(self) -> Dict[UserID, GitHubClient]:
+    def get_all(self) -> dict[UserID, GitHubClient]:
         return self._clients.copy()
 
-    def get(self, user_id: UserID, create: bool = False) -> Optional[GitHubClient]:
+    def get(self, user_id: UserID, create: bool = False) -> GitHubClient | None:
         try:
             return self._clients[user_id]
         except KeyError:
@@ -108,5 +97,5 @@ class ClientManager:
             return web.Response(status=401, text="Failed to finish login")
         resp = await client.query("viewer { login }")
         user = resp["viewer"]["login"]
-        self.put(user_id, client.token)
+        await self.put(user_id, client.token)
         return web.Response(status=200, text=f"Logged in as {user}")

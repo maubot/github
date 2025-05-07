@@ -15,12 +15,13 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from typing import Type
 
-from sqlalchemy import MetaData
+from mautrix.util.async_db import UpgradeTable
 
 from maubot import Plugin
 from mautrix.util import background_task
 
-from .db import Database
+from .db import DBManager
+from .migrations import upgrade_table
 from .webhook import WebhookManager, WebhookHandler
 from .client_manager import ClientManager
 from .api import GitHubWebhookReceiver
@@ -30,7 +31,7 @@ from .avatar_manager import AvatarManager
 
 
 class GitHubBot(Plugin):
-    db: Database
+    db: DBManager
     webhook_receiver: GitHubWebhookReceiver
     webhook_manager: WebhookManager
     webhook_handler: WebhookHandler
@@ -42,22 +43,23 @@ class GitHubBot(Plugin):
     async def start(self) -> None:
         self.config.load_and_update()
 
-        metadata = MetaData()
-
-        self.db = Database(self.database)
+        self.db = DBManager(self.database)
+        if await self.database.table_exists("needs_post_migration"):
+            self.log.info("Running database post-migration")
+            async with self.database.acquire() as conn, conn.transaction():
+                await self.db.run_post_migration(conn, self.config["webhook_key"])
         self.clients = ClientManager(self.config["client_id"], self.config["client_secret"],
-                                     self.http, self.database, metadata)
-        self.webhook_manager = WebhookManager(self.config["webhook_key"],
-                                              self.database, metadata)
+                                     self.http, self.db)
+        self.webhook_manager = WebhookManager(self.db)
         self.webhook_handler = WebhookHandler(bot=self)
-        self.avatars = AvatarManager(bot=self, metadata=metadata)
+        self.avatars = AvatarManager(bot=self)
         self.webhook_receiver = GitHubWebhookReceiver(handler=self.webhook_handler,
                                                       secrets=self.webhook_manager,
                                                       global_secret=self.config["global_webhook_secret"])
         self.commands = Commands(bot=self)
 
-        metadata.create_all(self.database)
-        self.clients.load_db()
+        await self.clients.load_db()
+        await self.avatars.load_db()
 
         self.register_handler_class(self.webhook_receiver)
         self.register_handler_class(self.clients)
@@ -82,10 +84,10 @@ class GitHubBot(Plugin):
             else:
                 if new_token is None:
                     self.log.debug(f"{user_id}'s token was not valid, removing from database")
-                    self.clients.remove(user_id)
+                    await self.clients.remove(user_id)
                 else:
                     self.log.debug(f"Successfully reset {user_id}'s token")
-                    self.clients.put(user_id, new_token)
+                    await self.clients.put(user_id, new_token)
         self.log.debug("Finished resetting all user tokens")
 
     def on_external_config_update(self) -> None:
@@ -101,3 +103,7 @@ class GitHubBot(Plugin):
     @classmethod
     def get_config_class(cls) -> Type[Config]:
         return Config
+
+    @classmethod
+    def get_db_upgrade_table(cls) -> UpgradeTable:
+        return upgrade_table

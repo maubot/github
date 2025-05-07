@@ -82,23 +82,22 @@ class WebhookHandler:
         self.msgtype = MessageType(self.bot.config["message_options.msgtype"]) or MessageType.NOTICE
         PendingAggregation.timeout = int(self.bot.config["message_options.aggregation_timeout"])
 
-    async def __call__(self, evt_type: EventType, evt: Event, delivery_id: str, info: WebhookInfo
-                       ) -> None:
+    async def __call__(self, evt_type: EventType, evt: Event, delivery_id: str, info: WebhookInfo) -> None:
         if evt_type == EventType.PING:
             self.log.debug(f"Received ping for {info}: {evt.zen}")
-            self.bot.webhook_manager.set_github_id(info, evt.hook_id)
+            await self.bot.webhook_manager.set_github_id(info, evt.hook_id)
         elif evt_type == EventType.META and evt.action == MetaAction.DELETED:
             self.log.debug(f"Received delete hook for {info}")
-            self.bot.webhook_manager.delete(info.id)
+            await self.bot.webhook_manager.delete(info.id)
         elif evt_type == EventType.REPOSITORY:
             if evt.action in (RepositoryAction.TRANSFERRED, RepositoryAction.RENAMED):
                 action = "transfer" if evt.action == RepositoryAction.TRANSFERRED else "rename"
                 name = evt.repository.full_name
                 self.log.debug(f"Received {action} hook {info} -> {name}")
-                self.bot.webhook_manager.transfer(info, name)
+                await self.bot.webhook_manager.transfer_repo(info, name)
             elif evt.action == RepositoryAction.DELETED:
                 self.log.debug(f"Received repo delete hook for {info}")
-                self.bot.webhook_manager.delete(info.id)
+                await self.bot.webhook_manager.delete(info.id)
         elif evt_type == EventType.PUSH and (evt.size is None or evt.distinct_size is None):
             assert isinstance(evt, PushEvent)
             evt.size = len(evt.commits)
@@ -107,7 +106,7 @@ class WebhookHandler:
             if evt.workflow_job.name == "lock-stale":
                 return
             assert isinstance(evt, WorkflowJobEvent)
-            push_evt = self.bot.db.get_event(evt.push_id, info.room_id)
+            push_evt = await self.bot.db.get_event(evt.push_id, info.room_id)
             if not push_evt:
                 self.bot.log.debug(f"No message found to react to push {evt.push_id}")
                 return
@@ -123,21 +122,19 @@ class WebhookHandler:
                 **evt.meta,
             }
 
-            prev_reaction = self.bot.db.get_event(evt.reaction_id, info.room_id)
+            prev_reaction = await self.bot.db.get_event(evt.reaction_id, info.room_id)
             if prev_reaction:
                 await self.bot.client.redact(info.room_id, prev_reaction)
             event_id = await self.bot.client.send_message_event(
                 info.room_id, MautrixEventType.REACTION, reaction
             )
-            self.bot.db.put_event(
-                evt.reaction_id, info.room_id, event_id, merge=prev_reaction is not None
-            )
+            await self.bot.db.put_event(evt.reaction_id, info.room_id, event_id)
 
         if PendingAggregation.timeout < 0:
             # Aggregations are disabled
             event_id = await self.send_message(evt_type, evt, info.room_id, {delivery_id})
             if evt_type == EventType.PUSH and event_id:
-                self.bot.db.put_event(evt.message_id, info.room_id, event_id)
+                await self.bot.db.put_event(evt.message_id, info.room_id, event_id)
             return
 
         for pending in self.pending_aggregations[info.id]:

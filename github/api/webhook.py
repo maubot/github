@@ -13,54 +13,41 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, Protocol, TYPE_CHECKING
 from uuid import UUID
 import hashlib
 import hmac
 import json
 
 from aiohttp import web
+from attr import dataclass
 
 from mautrix.types import SerializerError, RoomID
 from maubot.handlers import web as web_handler
 
 from .types import EventType, Event, EVENT_CLASSES
+from ..db import WebhookInfo
 
 if TYPE_CHECKING:
-    # Python 3.8+ only, so we do this in TYPE_CHECKING only
-    from typing import Protocol
+    from ..webhook import WebhookManager
 
 
-    class WebhookInfo(Protocol):
-        secret: str
+class HandlerFunc(Protocol):
+    async def __call__(self, evt_type: EventType, evt: Event, delivery_id: str,
+                       info: WebhookInfo) -> None:
+        pass
 
 
-    class HandlerFunc(Protocol):
-        async def __call__(self, evt_type: EventType, evt: Event, delivery_id: str,
-                           info: WebhookInfo) -> None:
-            pass
 
-
-    class SecretDict(Protocol):
-        def __getitem__(self, item: str) -> WebhookInfo:
-            pass
-
-
-class GlobalWebhookInfo:
-    id: UUID = UUID(int=0)
-    user_id: str = "root"
-    github_id: Optional[int] = None
-    repo: str = "unknown"
-
+@dataclass(frozen=True)
+class GlobalWebhookInfo(WebhookInfo):
     room_id: RoomID
     secret: str
 
-    def __init__(self, room_id: RoomID, secret: str) -> None:
-        self.room_id = room_id
-        self.secret = secret
-
-    def __repr__(self) -> str:
-        return f"GlobalWebhookInfo(room_id={self.room_id!r})"
+    id: UUID = UUID(int=0)
+    user_id: str = "root"
+    github_id: int | None = None
+    repo: str = "unknown"
 
     def __str__(self) -> str:
         return f"global webhook for {self.room_id!r}"
@@ -68,10 +55,10 @@ class GlobalWebhookInfo:
 
 class GitHubWebhookReceiver:
     handler: 'HandlerFunc'
-    secrets: 'SecretDict'
+    secrets: "WebhookManager"
     global_secret: Optional[str]
 
-    def __init__(self, handler: 'HandlerFunc', secrets: 'SecretDict',
+    def __init__(self, handler: 'HandlerFunc', secrets: "WebhookManager",
                  global_secret: Optional[str]) -> None:
         self.handler = handler
         self.secrets = secrets
@@ -85,13 +72,16 @@ class GitHubWebhookReceiver:
             room_id = RoomID(request.query["room"])
         except KeyError:
             return web.Response(status=400, text="room query param missing")
-        return await self._handle(request, GlobalWebhookInfo(room_id, self.global_secret))
+        return await self._handle(request, GlobalWebhookInfo(room_id=room_id, secret=self.global_secret))
 
     @web_handler.post("/webhook/{id}")
     async def handle(self, request: web.Request) -> web.Response:
         try:
-            webhook_info = self.secrets[request.match_info["id"]]
-        except (ValueError, KeyError):
+            id = UUID(request.match_info["id"])
+        except ValueError:
+            return web.Response(status=404, text="Invalid webhook ID")
+        webhook_info = await self.secrets.get(id)
+        if webhook_info is None:
             return web.Response(status=404, text="Webhook not found")
         return await self._handle(request, webhook_info)
 

@@ -6,6 +6,8 @@ from sqlalchemy.engine.base import Engine
 
 from mautrix.types import ContentURI
 
+from .db import DBManager
+
 if TYPE_CHECKING:
     from .bot import GitHubBot
 
@@ -13,23 +15,19 @@ if TYPE_CHECKING:
 class AvatarManager:
     bot: 'GitHubBot'
     _avatars: dict[str, ContentURI]
-    _table: Table
-    _db: Engine
+    _db: DBManager
     _lock: asyncio.Lock
 
-    def __init__(self, bot: 'GitHubBot', metadata: MetaData) -> None:
+    def __init__(self, bot: 'GitHubBot') -> None:
         self.bot = bot
-        self._db = bot.database
-        self._table = Table("avatar", metadata,
-                            Column("url", Text, primary_key=True),
-                            Column("mxc", Text, nullable=False))
+        self._db = bot.db
         self._lock = asyncio.Lock()
         self._avatars = {}
 
-    def load_db(self) -> None:
+    async def load_db(self) -> None:
         self._avatars = {url: ContentURI(mxc)
                          for url, mxc
-                         in self._db.execute(self._table.select())}
+                         in await self._db.get_avatars()}
 
     async def get_mxc(self, url: str) -> ContentURI:
         try:
@@ -46,6 +44,5 @@ class AvatarManager:
                 pass
             mxc = await self.bot.client.upload_media(data)
             self._avatars[url] = mxc
-            with self._db.begin() as conn:
-                conn.execute(self._table.insert().values(url=url, mxc=mxc))
+            await self._db.put_avatar(url, mxc)
         return mxc

@@ -8,5 +8,6 @@ main_class: GitHubBot
 extra_files:
 - base-config.yaml
 database: true
+database_type: asyncpg
 webapp: true
 config: true

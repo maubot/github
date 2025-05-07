@@ -131,7 +131,7 @@ class PendingAggregation:
             aggregation=self.aggregation,
         )
         if self.event_type == EventType.PUSH and event_id:
-            self.handler.bot.db.put_event(self.event.message_id, self.webhook_info.room_id, event_id)
+            await self.handler.bot.db.put_event(self.event.message_id, self.webhook_info.room_id, event_id)
 
     def aggregate(self, evt_type: EventType, evt: Event, delivery_id: str) -> bool:
         postpone = True
