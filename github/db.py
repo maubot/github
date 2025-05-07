@@ -218,7 +218,7 @@ class DBManager:
 
     async def transfer_webhook_rooms(self, old_room: RoomID, new_room: RoomID) -> None:
         await self.db.execute(
-            "UPDATE webhook SET room_id = $1 WHERE room_id = $2 ON CONFLICT (repo, room_id) DO NOTHING",
+            "UPDATE webhook SET room_id = $1 WHERE room_id = $2",
             new_room,
             old_room,
         )

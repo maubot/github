@@ -67,6 +67,7 @@ class GitHubBot(Plugin):
         self.register_handler_class(self.webhook_receiver)
         self.register_handler_class(self.clients)
         self.register_handler_class(self.commands)
+        self.register_handler_class(self.webhook_manager)
 
     async def reset_tokens(self) -> None:
         try:
