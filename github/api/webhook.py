@@ -18,6 +18,7 @@ from uuid import UUID
 import hashlib
 import hmac
 import json
+import logging
 
 from aiohttp import web
 from attr import dataclass
@@ -57,13 +58,19 @@ class GitHubWebhookReceiver:
     handler: "HandlerFunc"
     secrets: "WebhookManager"
     global_secret: Optional[str]
+    log: logging.Logger
 
     def __init__(
-        self, handler: "HandlerFunc", secrets: "WebhookManager", global_secret: Optional[str]
+        self,
+        handler: "HandlerFunc",
+        secrets: "WebhookManager",
+        global_secret: Optional[str],
+        log: logging.Logger,
     ) -> None:
         self.handler = handler
         self.secrets = secrets
         self.global_secret = global_secret
+        self.log = log
 
     @web_handler.post("/webhook")
     async def handle_global(self, request: web.Request) -> web.Response:
@@ -116,6 +123,7 @@ class GitHubWebhookReceiver:
         try:
             event = type_class.deserialize(data)
         except SerializerError:
+            self.log.exception("Failed to parse webhook event")
             return web.Response(status=500, text="Failed to parse event content")
         resp = await self.handler(event_type, event, delivery_id, webhook_info)
         if not isinstance(resp, web.Response):

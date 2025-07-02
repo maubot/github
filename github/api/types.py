@@ -330,6 +330,7 @@ class IssueState(SerializableEnum):
 class IssueStateReason(SerializableEnum):
     COMPLETED = "completed"
     NOT_PLANNED = "not_planned"
+    DUPLICATE = "duplicate"
 
 
 @dataclass

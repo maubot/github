@@ -58,6 +58,7 @@ class GitHubBot(Plugin):
             handler=self.webhook_handler,
             secrets=self.webhook_manager,
             global_secret=self.config["global_webhook_secret"],
+            log=self.log.getChild("webhook_receiver"),
         )
         self.commands = Commands(bot=self)
 
