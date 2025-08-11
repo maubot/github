@@ -981,6 +981,7 @@ class WorkflowConclusion(SerializableEnum):
     TIMED_OUT = "timed_out"
     ACTION_REQUIRED = "action_required"
     STALE = "stale"
+    SKIPPED = "skipped"
 
 
 @dataclass
@@ -1016,6 +1017,7 @@ _build_status_circles: Dict[WorkflowJobAction, Union[Dict[WorkflowConclusion, st
         WorkflowConclusion.TIMED_OUT: "⏱️",
         WorkflowConclusion.ACTION_REQUIRED: "⚠️",
         WorkflowConclusion.STALE: "⚪",
+        WorkflowConclusion.SKIPPED: "⏩️",
     },
 }
 
