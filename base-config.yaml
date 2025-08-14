@@ -173,6 +173,7 @@ messages:
         {% elif action == SYNCHRONIZE %}pushed something to
         {% elif action == LABELED %}           {% do abort() %}
         {% elif action == UNLABELED %}         {% do abort() %}
+        {% elif action == EDITED %}            {% do abort() %}
         {% elif action == X_LABEL_AGGREGATE %} {{ templates.label_aggregation }}
         {% elif action == MILESTONED %}        added {{ templates.pr_link }} to {{ milestone_link(milestone) }}
         {% elif action == DEMILESTONED %}      removed {{ templates.pr_link }} from {{ milestone_link(milestone) }}
