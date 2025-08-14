@@ -228,7 +228,7 @@ class DBManager:
             await conn.fetch("SELECT id, repo, user_id, room_id, github_id FROM webhook_old")
         )
         for row in rows:
-            id = uuid.UUID(row["id"])
+            id = row["id"] if isinstance(row["id"], uuid.UUID) else uuid.UUID(row["id"])
             secret = hmac.new(key=secret_key.encode("utf-8"), digestmod=hashlib.sha256)
             secret.update(id.bytes)
             secret.update(row["user_id"].encode("utf-8"))
