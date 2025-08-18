@@ -969,6 +969,7 @@ class RepositoryEvent(SerializableAttrs):
 
 class WorkflowJobAction(SerializableEnum):
     QUEUED = "queued"
+    WAITING = "waiting"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
 
@@ -1008,6 +1009,7 @@ class WorkflowJob(SerializableAttrs):
 
 _build_status_circles: Dict[WorkflowJobAction, Union[Dict[WorkflowConclusion, str], str]] = {
     WorkflowJobAction.QUEUED: "🟡",
+    WorkflowJobAction.WAITING: "🟠",
     WorkflowJobAction.IN_PROGRESS: "🔵",
     WorkflowJobAction.COMPLETED: {
         WorkflowConclusion.SUCCESS: "🟢",
