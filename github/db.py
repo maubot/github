@@ -80,7 +80,7 @@ class WebhookInfo:
         github_id = row["github_id"]
         secret = row["secret"]
         return cls(
-            id=uuid.UUID(id),
+            id=id if isinstance(id, uuid.UUID) else uuid.UUID(id),
             repo=repo,
             user_id=user_id,
             room_id=room_id,
