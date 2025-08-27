@@ -271,6 +271,7 @@ class ReleaseAction(SerializableEnum):
     EDITED = "edited"
     DELETED = "deleted"
     PRERELEASED = "prereleased"
+    RELEASED = "released"
 
 
 @dataclass
