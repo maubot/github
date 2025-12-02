@@ -88,7 +88,7 @@ macros: >
     {%- endmacro -%}
 
     {%- macro milestone_link(milestone, text=True) -%}
-        {% if text %}milestone {% endif %}<a href="{{ milestone.html_url }}">{{ milestone.title|e }}</a>
+        {% if text %}milestone {% endif %}<a data-mautrix-exclude-plaintext href="{{ milestone.html_url }}">{{ milestone.title|e }}</a>
     {%- endmacro -%}
 
     {%- macro repo_link(repo, important=True) -%}
@@ -219,12 +219,12 @@ messages:
             {% elif aggregation.reopened %}
                 reopened and
             {% endif %}
-            <a href="{{ comment.html_url }}">commented</a> on {{ templates.issue_link }}:
+            <a data-mautrix-exclude-plaintext href="{{ comment.html_url }}">commented</a> on {{ templates.issue_link }}:
             <blockquote>{{ comment.body|markdown }}</blockquote>
         {% else %}
             {{ action }}
             {{ personal_link(comment.user, possessive=True) }}
-            <a href="{{ comment.html_url }}">comment</a> on {{ templates.issue_link }}
+            <a data-mautrix-exclude-plaintext href="{{ comment.html_url }}">comment</a> on {{ templates.issue_link }}
         {% endif %}
 
     push: >
@@ -248,7 +248,7 @@ messages:
         {% for commit in commits %}
             {% if commit.distinct %}
                 <li>
-                    <a href="{{ commit.url }}"><code>{{ commit.id[:8] }}</code></a>
+                    <a data-mautrix-exclude-plaintext href="{{ commit.url }}"><code>{{ commit.id[:8] }}</code></a>
                     {{ util.cut_message(commit.message)|e }}
                     {% if commit.author.username != sender.login %}
                         by {{ commit_user_link(commit.author) }}
