@@ -14,6 +14,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 from typing import Optional
 import hashlib
 import hmac
@@ -47,6 +48,8 @@ class Client:
 class Avatar:
     url: str
     mxc: ContentURI
+    etag: Optional[str] = None
+    fetched_at: int = 0
 
     @classmethod
     def from_row(cls, row: Record | None) -> Optional["Avatar"]:
@@ -54,9 +57,13 @@ class Avatar:
             return None
         url = row["url"]
         mxc = row["mxc"]
+        etag = row.get("etag")
+        fetched_at = int(row.get("fetched_at") or 0)
         return cls(
             url=url,
             mxc=mxc,
+            etag=etag,
+            fetched_at=fetched_at,
         )
 
 
@@ -145,17 +152,29 @@ class DBManager:
         )
 
     async def get_avatars(self) -> list[Avatar]:
-        rows = await self.db.fetch("SELECT url, mxc FROM avatar")
+        rows = await self.db.fetch("SELECT url, mxc, etag, fetched_at FROM avatar")
         return [Avatar.from_row(row) for row in rows]
 
-    async def put_avatar(self, url: str, mxc: ContentURI) -> None:
+    async def put_avatar(
+        self,
+        url: str,
+        mxc: ContentURI,
+        *,
+        etag: Optional[str] = None,
+        fetched_at: Optional[int] = None,
+    ) -> None:
         await self.db.execute(
             """
-            INSERT INTO avatar (url, mxc) VALUES ($1, $2)
-            ON CONFLICT (url) DO NOTHING
+            INSERT INTO avatar (url, mxc, etag, fetched_at) VALUES ($1, $2, $3, $4)
+            ON CONFLICT (url) DO UPDATE SET
+                mxc = excluded.mxc,
+                etag = excluded.etag,
+                fetched_at = excluded.fetched_at
             """,
             url,
             mxc,
+            etag,
+            fetched_at,
         )
 
     async def get_webhook_by_id(self, id: uuid.UUID) -> WebhookInfo | None:
