@@ -308,7 +308,7 @@ class Commands:
         self, evt: MessageEvent, repo: Tuple[str, str], client: Optional[GitHubClient]
     ) -> None:
         repo_name = f"{repo[0]}/{repo[1]}"
-        webhook_info = await self.bot.webhook_manager.get_by_repo(repo_name, evt.room_id)
+        webhook_info = await self.bot.webhook_manager.get_by_repo(evt.room_id, repo_name)
         if not webhook_info:
             await evt.reply("This room does not have a webhook for that repo")
             return
