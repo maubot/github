@@ -26,15 +26,15 @@ async def upgrade_latest(conn: Connection, scheme: Scheme) -> None:
         await conn.execute("ALTER TABLE webhook RENAME TO webhook_old;")
         await conn.execute("ALTER TABLE client RENAME TO client_old;")
         await conn.execute("ALTER TABLE matrix_message RENAME TO matrix_message_old;")
-    await conn.execute(
-        f"""CREATE TABLE client (
+    await conn.execute(f"""
+        CREATE TABLE client (
             user_id TEXT NOT NULL,
             token   TEXT NOT NULL,
             PRIMARY KEY (user_id)
-        )"""
-    )
-    await conn.execute(
-        """CREATE TABLE webhook (
+        )
+    """)
+    await conn.execute("""
+        CREATE TABLE webhook (
             id        uuid NOT NULL,
             repo      TEXT NOT NULL,
             user_id   TEXT NOT NULL,
@@ -43,23 +43,23 @@ async def upgrade_latest(conn: Connection, scheme: Scheme) -> None:
             github_id INTEGER,
             PRIMARY KEY (id),
             CONSTRAINT webhook_repo_room_unique UNIQUE (repo, room_id)
-        )"""
-    )
-    await conn.execute(
-        """CREATE TABLE matrix_message (
+        )
+    """)
+    await conn.execute("""
+        CREATE TABLE matrix_message (
             message_id TEXT NOT NULL,
             room_id    TEXT NOT NULL,
             event_id   TEXT NOT NULL,
             PRIMARY KEY (message_id, room_id)
-        )"""
-    )
-    await conn.execute(
-        """CREATE TABLE IF NOT EXISTS avatar (
+        )
+    """)
+    await conn.execute("""
+        CREATE TABLE IF NOT EXISTS avatar (
             url TEXT NOT NULL,
             mxc TEXT NOT NULL,
             PRIMARY KEY (url)
-        )"""
-    )
+        )
+    """)
     if needs_migration:
         await migrate_legacy_to_v1(conn)
 
