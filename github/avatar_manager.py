@@ -10,8 +10,8 @@ from .db import DBManager
 if TYPE_CHECKING:
     from .bot import GitHubBot
 
-_TTL = 300
-_DB_TOUCH_INTERVAL = 3600
+_TTL = 3600
+_DB_TOUCH_INTERVAL = 86400
 
 
 @dataclass
